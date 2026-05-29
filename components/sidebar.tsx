@@ -111,7 +111,7 @@ export function Sidebar() {
     pathname === href || (href === "/dashboard" && pathname === "/");
 
   return (
-    <aside className="flex w-[268px] shrink-0 flex-col border-r border-line-soft bg-white">
+    <aside className="flex w-[268px] shrink-0 flex-col border-r border-line-soft bg-card">
       {/* brand */}
       <div className="flex items-center gap-3 px-5 pb-4 pt-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-primary text-base font-bold text-white">
@@ -129,7 +129,7 @@ export function Sidebar() {
 
       {/* year selector */}
       <div className="px-5 pb-4">
-        <button className="flex h-[38px] w-full items-center gap-2 rounded-[10px] border border-line-soft bg-white px-3 transition-colors hover:bg-surface">
+        <button className="flex h-[38px] w-full items-center gap-2 rounded-[10px] border border-line-soft bg-card px-3 transition-colors hover:bg-surface">
           <CalendarDays className="h-4 w-4 text-subtle" />
           <span className="flex-1 text-left text-[13px] font-semibold text-ink">
             Año lectivo 2025
@@ -158,7 +158,7 @@ export function Sidebar() {
       <div className="px-4 pb-3 pt-3.5">
         <div className="flex flex-col gap-2.5 rounded-[14px] border border-line-soft bg-surface p-3.5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-line-soft bg-white">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-line-soft bg-card">
               <LifeBuoy className="h-4 w-4 text-primary" />
             </div>
             <div className="flex flex-col">

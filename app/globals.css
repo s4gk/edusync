@@ -2,12 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Tokens de tema — se mapean a Tailwind vía tailwind.config.ts
+   Valores tomados del diseño Pencil (school.pen, tema "Mode").
+   ============================================================ */
+:root {
+  color-scheme: light;
+
+  /* superficies */
+  --bg: #ffffff; /* fondo de página */
+  --card: #ffffff; /* tarjetas, sidebar, topbar */
+  --surface: #f5f5f5; /* hover, chips suaves, inputs */
+
+  /* texto */
+  --ink: #2a2933; /* texto principal */
+  --subtle: #616167; /* texto secundario */
+  --muted: #939399; /* texto terciario / íconos nav */
+
+  /* líneas */
+  --line: #c5c5cb;
+  --line-soft: #d9d9db;
+
+  /* acento */
+  --primary-tint: #eceaff;
+
+  /* estados semánticos (bg + fg) */
+  --s-success: #a1e5a1;
+  --s-success-fg: #003300;
+  --s-error: #ffbfb2;
+  --s-error-fg: #590f00;
+  --s-warning: #ffd9b2;
+  --s-warning-fg: #4d2700;
+  --s-info: #c9d6f0;
+  --s-info-fg: #001133;
+
+  /* gráficas (Recharts) */
+  --chart-axis: #616167;
+  --chart-grid: #c5c5cb;
+  --chart-baseline: #d9d9db;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #c5c5cb;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg: #131124;
+  --card: #1a182e;
+  --surface: #2b283d;
+
+  --ink: #e8e8ea;
+  --subtle: #888799;
+  --muted: #acabb2;
+
+  --line: #2b283d;
+  --line-soft: #2b283d;
+
+  --primary-tint: #272350;
+
+  --s-success: #3b4748;
+  --s-success-fg: #a1e5a1;
+  --s-error: #53424f;
+  --s-error-fg: #ffbfb2;
+  --s-warning: #53484f;
+  --s-warning-fg: #ffd9b2;
+  --s-info: #404562;
+  --s-info-fg: #b2ccff;
+
+  --chart-axis: #888799;
+  --chart-grid: #2b283d;
+  --chart-baseline: #403f51;
+  --chart-tooltip-bg: #1a182e;
+  --chart-tooltip-border: #2b283d;
+}
+
 html,
 body {
   height: 100%;
 }
 
 body {
+  background-color: var(--bg);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }

@@ -5,14 +5,14 @@ import {
   ChevronRight,
   Search,
   ChevronDown,
-  Sun,
   Bell,
   LifeBuoy,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Topbar() {
   return (
-    <header className="flex h-[68px] shrink-0 items-center gap-4 border-b border-line bg-white px-6">
+    <header className="flex h-[68px] shrink-0 items-center gap-4 border-b border-line bg-card px-6">
       {/* left: collapse + breadcrumbs */}
       <div className="flex items-center gap-2.5">
         <button className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink transition-colors hover:bg-line-soft">
@@ -36,7 +36,7 @@ export function Topbar() {
             placeholder="Buscar estudiantes, profesores, documentos…"
             className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-subtle"
           />
-          <kbd className="rounded-md border border-line bg-white px-1.5 py-0.5 text-[11px] font-semibold text-subtle">
+          <kbd className="rounded-md border border-line bg-card px-1.5 py-0.5 text-[11px] font-semibold text-subtle">
             ⌘K
           </kbd>
         </div>
@@ -44,16 +44,14 @@ export function Topbar() {
 
       {/* right cluster */}
       <div className="flex items-center gap-1.5">
-        <button className="flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 transition-colors hover:bg-surface">
+        <button className="flex items-center gap-1.5 rounded-full border border-line bg-card px-3 py-1.5 transition-colors hover:bg-surface">
           <span className="text-xs font-medium text-ink">Año lectivo 2025</span>
           <ChevronDown className="h-3.5 w-3.5 text-subtle" />
         </button>
-        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-ink transition-colors hover:bg-line-soft">
-          <Sun className="h-4 w-4" />
-        </button>
+        <ThemeToggle />
         <button className="relative flex h-10 w-10 items-center justify-center rounded-full bg-surface text-ink transition-colors hover:bg-line-soft">
           <Bell className="h-4 w-4" />
-          <span className="absolute right-2.5 top-2 h-2.5 w-2.5 rounded-full border-[1.5px] border-white bg-danger" />
+          <span className="absolute right-2.5 top-2 h-2.5 w-2.5 rounded-full border-[1.5px] border-card bg-danger" />
         </button>
         <button className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-ink transition-colors hover:bg-line-soft">
           <LifeBuoy className="h-4 w-4" />

@@ -35,7 +35,9 @@ export function DistributionDonut() {
             formatter={(value: number, name: string) => [`${value}%`, name]}
             contentStyle={{
               borderRadius: 12,
-              border: "1px solid #C5C5CB",
+              background: "var(--chart-tooltip-bg)",
+              border: "1px solid var(--chart-tooltip-border)",
+              color: "var(--ink)",
               fontSize: 12,
             }}
           />

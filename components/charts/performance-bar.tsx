@@ -29,41 +29,43 @@ export function PerformanceBar() {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={DATA} margin={{ top: 18, right: 0, left: -28, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke="#C5C5CB" strokeOpacity={0.5} />
+        <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeOpacity={0.5} />
         <XAxis
           dataKey="grado"
           tickLine={false}
           axisLine={false}
-          tick={{ fontSize: 10, fill: "#616167" }}
+          tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
         />
         <YAxis
           domain={[0, 5]}
           ticks={[0, 1, 2, 3, 4, 5]}
           tickLine={false}
           axisLine={false}
-          tick={{ fontSize: 10, fill: "#616167" }}
+          tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
         />
         <Tooltip
           cursor={{ fill: "#5749F4", fillOpacity: 0.06 }}
           contentStyle={{
             borderRadius: 12,
-            border: "1px solid #C5C5CB",
+            background: "var(--chart-tooltip-bg)",
+            border: "1px solid var(--chart-tooltip-border)",
+            color: "var(--ink)",
             fontSize: 12,
             boxShadow: "0 4px 12px rgba(16,16,24,0.08)",
           }}
-          labelStyle={{ fontWeight: 600, color: "#2A2933" }}
+          labelStyle={{ fontWeight: 600, color: "var(--ink)" }}
         />
         <Bar dataKey="actual" name="Este periodo" fill="#5749F4" radius={[4, 4, 0, 0]} maxBarSize={14}>
           <LabelList
             dataKey="actual"
             position="top"
-            style={{ fontSize: 10, fontWeight: 600, fill: "#2A2933" }}
+            style={{ fontSize: 10, fontWeight: 600, fill: "var(--ink)" }}
           />
         </Bar>
         <Bar
           dataKey="anterior"
           name="Periodo anterior"
-          fill="#D9D9DB"
+          fill="var(--chart-baseline)"
           radius={[4, 4, 0, 0]}
           maxBarSize={14}
         />
