@@ -52,17 +52,6 @@ export function Topbar() {
           <Bell className="h-4 w-4" />
           <span className="absolute right-2.5 top-2 h-2.5 w-2.5 rounded-full border-[1.5px] border-card bg-danger" />
         </button>
-
-        <span className="mx-0.5 h-6 w-px bg-line" />
-
-        {/* perfil compacto: solo avatar */}
-        <button
-          aria-label="Abrir menú de perfil"
-          title="María Rojas · Rectora"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-line-soft bg-line-soft text-xs font-semibold text-ink transition-colors hover:bg-line"
-        >
-          MR
-        </button>
       </div>
     </header>
   );
