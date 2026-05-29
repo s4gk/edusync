@@ -25,13 +25,15 @@ export function IncomeBar() {
           dataKey="mes"
           tickLine={false}
           axisLine={false}
-          tick={{ fontSize: 10, fill: "#616167" }}
+          tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
         />
         <Tooltip
           cursor={{ fill: "#5749F4", fillOpacity: 0.06 }}
           contentStyle={{
             borderRadius: 12,
-            border: "1px solid #C5C5CB",
+            background: "var(--chart-tooltip-bg)",
+            border: "1px solid var(--chart-tooltip-border)",
+            color: "var(--ink)",
             fontSize: 12,
           }}
         />

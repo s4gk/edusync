@@ -1,28 +1,35 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
+        // acento — igual en claro y oscuro
         primary: "#5749F4",
-        "primary-tint": "#ECEAFF",
-        ink: "#2A2933",
-        subtle: "#616167",
-        muted: "#939399",
-        line: "#C5C5CB",
-        "line-soft": "#D9D9DB",
-        surface: "#F5F5F5",
-        // chips / estados semánticos (bg + fg)
-        "s-success": "#A1E5A1",
-        "s-success-fg": "#003300",
-        "s-error": "#FFBFB2",
-        "s-error-fg": "#590F00",
-        "s-warning": "#FFD9B2",
-        "s-warning-fg": "#4D2700",
-        "s-info": "#C9D6F0",
-        "s-info-fg": "#001133",
+        "primary-tint": "var(--primary-tint)",
         danger: "#CC3314",
+        // superficies (cambian con el tema)
+        bg: "var(--bg)",
+        card: "var(--card)",
+        surface: "var(--surface)",
+        // texto
+        ink: "var(--ink)",
+        subtle: "var(--subtle)",
+        muted: "var(--muted)",
+        // líneas
+        line: "var(--line)",
+        "line-soft": "var(--line-soft)",
+        // chips / estados semánticos (bg + fg)
+        "s-success": "var(--s-success)",
+        "s-success-fg": "var(--s-success-fg)",
+        "s-error": "var(--s-error)",
+        "s-error-fg": "var(--s-error-fg)",
+        "s-warning": "var(--s-warning)",
+        "s-warning-fg": "var(--s-warning-fg)",
+        "s-info": "var(--s-info)",
+        "s-info-fg": "var(--s-info-fg)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],

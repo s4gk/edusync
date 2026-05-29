@@ -111,7 +111,7 @@ export default function LoginPage() {
       </aside>
 
       {/* ---------- Panel formulario (derecha) ---------- */}
-      <section className="flex w-full flex-1 flex-col justify-between gap-8 bg-white px-6 py-10 sm:px-12 lg:px-20 lg:py-16">
+      <section className="flex w-full flex-1 flex-col justify-between gap-8 bg-card px-6 py-10 sm:px-12 lg:px-20 lg:py-16">
         {/* top: ¿Eres nuevo? */}
         <div className="flex items-center justify-end gap-2">
           <span className="text-[13px] text-subtle">¿Eres nuevo aquí?</span>

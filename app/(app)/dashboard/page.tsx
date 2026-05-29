@@ -174,7 +174,7 @@ export default function DashboardPage() {
           return (
             <div
               key={k.label}
-              className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-5 shadow-card"
+              className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-5 shadow-card"
             >
               <div className="flex items-center justify-between">
                 <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${t.badgeBg}`}>
@@ -205,7 +205,7 @@ export default function DashboardPage() {
       {/* ====== Charts row 1 ====== */}
       <div className="flex flex-col gap-4 xl:flex-row">
         {/* Card A */}
-        <div className="flex h-[360px] flex-1 flex-col gap-4 rounded-2xl border border-line bg-white p-5">
+        <div className="flex h-[360px] flex-1 flex-col gap-4 rounded-2xl border border-line bg-card p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
               <h3 className="text-base font-semibold text-ink">
@@ -235,7 +235,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Card B */}
-        <div className="flex h-[360px] w-full flex-col gap-4 rounded-2xl border border-line bg-white p-5 xl:w-[340px] xl:shrink-0">
+        <div className="flex h-[360px] w-full flex-col gap-4 rounded-2xl border border-line bg-card p-5 xl:w-[340px] xl:shrink-0">
           <div className="flex flex-col gap-1">
             <h3 className="text-base font-semibold text-ink">
               Distribución de desempeño
@@ -267,7 +267,7 @@ export default function DashboardPage() {
       {/* ====== Charts row 2 ====== */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Card C */}
-        <div className="flex h-[280px] flex-col gap-4 rounded-2xl border border-line bg-white p-5">
+        <div className="flex h-[280px] flex-col gap-4 rounded-2xl border border-line bg-card p-5">
           <div className="flex flex-col gap-1">
             <h3 className="text-sm font-semibold text-ink">Asistencia semanal</h3>
             <div className="flex items-end gap-2">
@@ -285,7 +285,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Card D */}
-        <div className="flex h-[280px] flex-col gap-4 rounded-2xl border border-line bg-white p-5">
+        <div className="flex h-[280px] flex-col gap-4 rounded-2xl border border-line bg-card p-5">
           <div className="flex flex-col gap-1">
             <h3 className="text-sm font-semibold text-ink">
               Ingresos mensuales (COP)
@@ -316,7 +316,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Card E */}
-        <div className="flex h-[280px] flex-col gap-4 rounded-2xl border border-line bg-white p-5">
+        <div className="flex h-[280px] flex-col gap-4 rounded-2xl border border-line bg-card p-5">
           <div className="flex flex-col gap-1">
             <h3 className="text-sm font-semibold text-ink">
               Tendencias académicas
@@ -348,7 +348,7 @@ export default function DashboardPage() {
       {/* ====== Activity + Alerts ====== */}
       <div className="flex flex-col gap-5 xl:flex-row">
         {/* Activity feed */}
-        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-white">
+        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-card">
           <div className="flex flex-col gap-4 border-b border-line px-6 py-5">
             <div className="flex items-start justify-between">
               <div className="flex flex-col gap-1">
@@ -386,7 +386,7 @@ export default function DashboardPage() {
                 >
                   {tab}
                   {i === 0 && (
-                    <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-subtle">
+                    <span className="rounded-full bg-card px-1.5 py-0.5 text-[10px] font-semibold text-subtle">
                       248
                     </span>
                   )}
@@ -428,7 +428,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Alerts panel */}
-        <div className="flex w-full flex-col overflow-hidden rounded-2xl border border-line bg-white xl:w-[420px] xl:shrink-0">
+        <div className="flex w-full flex-col overflow-hidden rounded-2xl border border-line bg-card xl:w-[420px] xl:shrink-0">
           <div className="flex flex-col gap-3.5 border-b border-line px-6 py-5">
             <div className="flex items-start justify-between">
               <div className="flex flex-col gap-1">
@@ -452,7 +452,7 @@ export default function DashboardPage() {
                 <button
                   key={s}
                   className={`flex-1 rounded-md px-2 py-1.5 text-center text-xs transition-colors ${
-                    i === 0 ? "border border-line bg-white font-semibold text-ink" : "font-medium text-subtle"
+                    i === 0 ? "border border-line bg-card font-semibold text-ink" : "font-medium text-subtle"
                   }`}
                 >
                   {s}
@@ -467,7 +467,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={al.title}
-                  className="flex gap-3 rounded-xl border border-line bg-white p-3.5"
+                  className="flex gap-3 rounded-xl border border-line bg-card p-3.5"
                 >
                   <span className={`w-[3px] shrink-0 rounded-full ${al.bar}`} />
                   <div className="flex flex-1 flex-col gap-1.5">
