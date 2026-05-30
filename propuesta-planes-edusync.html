@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduSync — Planes y Precios</title>
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc;
+    --basic:#10b981; --pro:#3b82f6; --premium:#8b5cf6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 28px}
+  /* Header */
+  .header{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:8px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px;box-shadow:0 8px 24px rgba(59,130,246,.35)}
+  .brand h1{font-size:26px;letter-spacing:-.5px}
+  .brand p{color:var(--muted);font-size:13px}
+  .tagpill{font-size:12px;color:var(--pro);background:#eff6ff;border:1px solid #dbeafe;padding:6px 12px;border-radius:999px;font-weight:600}
+  .lede{margin:18px 0 30px;color:var(--muted);font-size:15px;max-width:680px}
+  /* Cards */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:34px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 20px;position:relative;display:flex;flex-direction:column}
+  .card.pro{border:2px solid var(--pro);box-shadow:0 14px 40px rgba(59,130,246,.18)}
+  .ribbon{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--pro);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;letter-spacing:.3px}
+  .ctag{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .b .dot{background:var(--basic)} .b .ctag{color:var(--basic)}
+  .p .dot{background:var(--pro)} .p .ctag{color:var(--pro)}
+  .pr .dot{background:var(--premium)} .pr .ctag{color:var(--premium)}
+  .price{font-size:30px;font-weight:800;letter-spacing:-1px}
+  .price span{font-size:13px;font-weight:500;color:var(--muted)}
+  .fixed{font-size:12.5px;color:var(--muted);margin-top:4px;padding-bottom:14px;border-bottom:1px dashed var(--line);margin-bottom:14px}
+  .ideal{font-size:12.5px;color:var(--muted);min-height:34px}
+  /* Table */
+  h2{font-size:15px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:30px 0 12px}
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:13.5px}
+  th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:#f1f5f9;font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  td.c,th.c{text-align:center;width:120px}
+  tr:last-child td{border-bottom:none}
+  .grp td{background:#f8fafc;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .yes{color:var(--basic);font-weight:800}
+  .no{color:#cbd5e1}
+  .pop{background:#eff6ff}
+  /* Two-col blocks */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .panel h3{font-size:14px;margin-bottom:12px}
+  .panel ul{list-style:none}
+  .panel li{padding:7px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;font-size:13.5px}
+  .panel li:last-child{border-bottom:none}
+  .panel li b{white-space:nowrap;color:var(--pro)}
+  .hooks li{border-bottom:1px dashed var(--line);color:var(--ink)}
+  .hooks li::before{content:"✦";color:var(--premium);margin-right:8px}
+  /* Footer / CTA */
+  .cta{margin-top:30px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;border-radius:18px;padding:26px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .cta h3{font-size:19px;margin-bottom:4px}
+  .cta p{color:#94a3b8;font-size:13.5px}
+  .cta .btn{background:#fff;color:#0f172a;padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap}
+  .foot{margin-top:18px;text-align:center;color:var(--muted);font-size:11.5px}
+  @media print{ body{background:#fff} .wrap{padding:0} .cards,table,.panel,.cta{break-inside:avoid} }
+  @media (max-width:760px){ .cards,.grid2{grid-template-columns:1fr} td.c,th.c{width:auto} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="brand">
+      <div class="logo">E</div>
+      <div>
+        <h1>EduSync</h1>
+        <p>Plataforma integral de gestión escolar</p>
+      </div>
+    </div>
+    <span class="tagpill">Propuesta de planes 2026</span>
+  </div>
+
+  <p class="lede">Digitaliza todo el colegio en un solo lugar: asistencia, calificaciones por dimensiones (Ser · Hacer · Saber), boletines oficiales, matrículas, finanzas, comunicaciones y app para acudientes. Menos Excel, menos papel, más tiempo para enseñar.</p>
+
+  <!-- Plan cards -->
+  <div class="cards">
+    <div class="card b">
+      <div class="ctag"><span class="dot"></span>Básico</div>
+      <div class="price">$2.500 <span>/ estudiante · mes</span></div>
+      <div class="fixed">o plan fijo desde <b>$600.000/mes</b> (≤200 alumnos)</div>
+      <div class="ideal">Para colegios pequeños que dan el primer paso a lo digital.</div>
+    </div>
+    <div class="card pro p">
+      <div class="ribbon">★ MÁS POPULAR</div>
+      <div class="ctag"><span class="dot"></span>Pro</div>
+      <div class="price">$3.900 <span>/ estudiante · mes</span></div>
+      <div class="fixed">o plan fijo desde <b>$1.100.000/mes</b> (≤200 alumnos)</div>
+      <div class="ideal">El colegio completamente digital: gestión académica y administrativa.</div>
+    </div>
+    <div class="card pr">
+      <div class="ctag"><span class="dot"></span>Premium</div>
+      <div class="price">$5.500 <span>/ estudiante · mes</span></div>
+      <div class="fixed">o plan fijo desde <b>$1.800.000/mes</b> (≤200 alumnos)</div>
+      <div class="ideal">Instituciones grandes o multi-sede que quieren finanzas y analítica.</div>
+    </div>
+  </div>
+
+  <!-- Feature matrix -->
+  <h2>¿Qué incluye cada plan?</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Módulo / Funcionalidad</th>
+        <th class="c">Básico</th>
+        <th class="c pop">Pro</th>
+        <th class="c">Premium</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="grp"><td colspan="4">Núcleo académico</td></tr>
+      <tr><td>Dashboard institucional</td><td class="c yes">✓</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Asistencia</td><td class="c yes">✓</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Calificaciones (Ser · Hacer · Saber)</td><td class="c yes">✓</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Portal del profesor</td><td class="c yes">✓</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Boletines básicos</td><td class="c yes">✓</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>App de acudiente (consulta)</td><td class="c yes">✓</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Usuarios y configuración</td><td class="c yes">✓</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+
+      <tr class="grp"><td colspan="4">Gestión completa</td></tr>
+      <tr><td>Matrículas</td><td class="c no">—</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Observador del estudiante</td><td class="c no">—</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Comunicaciones / circulares</td><td class="c no">—</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Boletines oficiales personalizados</td><td class="c no">—</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>App acudiente con notificaciones</td><td class="c no">—</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Estados y reportes</td><td class="c no">—</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+
+      <tr class="grp"><td colspan="4">Premium</td></tr>
+      <tr><td>Finanzas / cartera</td><td class="c no">—</td><td class="c pop no">—</td><td class="c yes">✓</td></tr>
+      <tr><td>Analítica avanzada (Coach · Trayectoria)</td><td class="c no">—</td><td class="c pop no">—</td><td class="c yes">✓</td></tr>
+      <tr><td>Recap y tarjeta del estudiante</td><td class="c no">—</td><td class="c pop no">—</td><td class="c yes">✓</td></tr>
+      <tr><td>Branding del colegio (logo y colores)</td><td class="c no">—</td><td class="c pop no">—</td><td class="c yes">✓</td></tr>
+      <tr><td>Integraciones (correo, pagos, etc.)</td><td class="c no">—</td><td class="c pop no">—</td><td class="c yes">✓</td></tr>
+
+      <tr class="grp"><td colspan="4">Soporte</td></tr>
+      <tr><td>Soporte por correo</td><td class="c yes">✓</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Soporte WhatsApp / chat</td><td class="c no">—</td><td class="c pop yes">✓</td><td class="c yes">✓</td></tr>
+      <tr><td>Soporte prioritario + gestor de cuenta</td><td class="c no">—</td><td class="c pop no">—</td><td class="c yes">✓</td></tr>
+    </tbody>
+  </table>
+
+  <!-- Add-ons + hooks -->
+  <div class="grid2">
+    <div class="panel">
+      <h3>🔧 Servicios únicos (se cobran aparte)</h3>
+      <ul>
+        <li>Implementación y onboarding <b>$1.5M – $4M</b></li>
+        <li>Migración de datos (notas y alumnos) <b>desde $800k</b></li>
+        <li>Capacitación adicional (por jornada) <b>$350k</b></li>
+        <li>Personalizaciones a medida <b>cotización</b></li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>🎁 Beneficios de lanzamiento</h3>
+      <ul class="hooks">
+        <li>Plan anual: paga 10 meses, lleva 12</li>
+        <li>Precio especial para los primeros colegios</li>
+        <li>Cóbralo como "cuota de plataforma" en la matrícula</li>
+        <li>Sin permanencia mínima en el primer año</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta">
+    <div>
+      <h3>¿Listos para digitalizar el colegio?</h3>
+      <p>Agenda una demo gratuita de 30 minutos y te mostramos EduSync con datos de tu institución.</p>
+    </div>
+    <a class="btn" href="#">Agendar demo →</a>
+  </div>
+
+  <p class="foot">EduSync · Plataforma de gestión escolar · Precios en pesos colombianos (COP), no incluyen IVA · Vigencia 2026 · Sujetos a cambio.</p>
+
+</div>
+</body>
+</html>

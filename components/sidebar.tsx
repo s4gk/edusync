@@ -8,6 +8,7 @@ import {
   Users,
   ClipboardList,
   CalendarCheck,
+  CalendarRange,
   FileText,
   BookText,
   MessageSquareWarning,
@@ -36,6 +37,7 @@ const GROUPS: NavGroup[] = [
   {
     title: "ACADÉMICO",
     items: [
+      { label: "Horarios", icon: CalendarRange, href: "/horarios" },
       { label: "Calificaciones", icon: FileText, href: "/calificaciones" },
       { label: "Asistencia", icon: CalendarCheck, href: "/asistencia" },
       { label: "Boletines", icon: BookText, href: "/boletines" },
