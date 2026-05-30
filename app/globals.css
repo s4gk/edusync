@@ -58,16 +58,18 @@
   --line: #2b283d;
   --line-soft: #2b283d;
 
-  --primary-tint: #272350;
+  --primary-tint: #2b2658;
 
-  --s-success: #3b4748;
-  --s-success-fg: #a1e5a1;
-  --s-error: #53424f;
-  --s-error-fg: #ffbfb2;
-  --s-warning: #53484f;
-  --s-warning-fg: #ffd9b2;
-  --s-info: #404562;
-  --s-info-fg: #b2ccff;
+  /* chips de estado en oscuro: tintes claramente verde/rojo/ámbar/azul
+     con buen contraste (los del diseño quedaban demasiado apagados). */
+  --s-success: #1f3d30;
+  --s-success-fg: #7ee9b0;
+  --s-error: #4a2a31;
+  --s-error-fg: #ffa9a9;
+  --s-warning: #463821;
+  --s-warning-fg: #fcd34d;
+  --s-info: #233253;
+  --s-info-fg: #9ec5ff;
 
   --chart-axis: #888799;
   --chart-grid: #2b283d;
@@ -128,3 +130,10 @@ body {
 .dark .bg-blue-200 { background-color: rgba(59, 130, 246, 0.3); }
 .dark .bg-emerald-200 { background-color: rgba(16, 185, 129, 0.3); }
 .dark .bg-amber-200 { background-color: rgba(245, 158, 11, 0.3); }
+
+/* El morado de marca como TEXTO queda bajo de contraste sobre fondos
+   oscuros / tintes morados; se aclara solo en modo oscuro. El fondo
+   (bg-primary) de botones no cambia. */
+.dark .text-primary {
+  color: #a99cff;
+}

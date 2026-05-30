@@ -122,23 +122,30 @@ function definitiva(grades: Record<string, string>, evals: Evaluation[]): number
 function letra(p: number | null): { txt: string; chip: string } {
   if (p === null) return { txt: "—", chip: "bg-surface text-subtle" };
   if (p >= 4.6) return { txt: "S", chip: "bg-s-success text-s-success-fg" };
-  if (p >= 4.0) return { txt: "A", chip: "bg-primary-tint text-primary" };
+  if (p >= 4.0) return { txt: "A", chip: "bg-s-info text-s-info-fg" };
   if (p >= 3.0) return { txt: "Bs", chip: "bg-surface text-ink" };
   return { txt: "Bj", chip: "bg-s-error text-s-error-fg" };
 }
 
-function cellClass(v: number | null): string {
-  if (v === null) return "bg-transparent text-subtle";
-  if (v >= 4.5) return "bg-s-success text-s-success-fg";
-  if (v < 3.0) return "bg-s-error text-s-error-fg";
-  return "bg-surface text-ink";
+function cellBg(v: number | null): string {
+  if (v === null) return "bg-transparent";
+  if (v >= 4.5) return "bg-s-success";
+  if (v < 3.0) return "bg-s-error";
+  return "bg-surface";
+}
+
+function cellText(v: number | null): string {
+  if (v === null) return "text-subtle";
+  if (v >= 4.5) return "text-s-success-fg";
+  if (v < 3.0) return "text-s-error-fg";
+  return "text-ink";
 }
 
 function pillClass(v: number | null): string {
   if (v === null) return "bg-surface text-subtle";
   if (v >= 4.5) return "bg-s-success text-s-success-fg";
   if (v < 3.0) return "bg-s-error text-s-error-fg";
-  return "bg-primary-tint text-primary";
+  return "bg-s-info text-s-info-fg";
 }
 
 /* ---------------- página ---------------- */
@@ -380,13 +387,15 @@ export default function CalificacionesPage() {
                     const v = num(s.grades[e.id] ?? "");
                     return (
                       <div key={e.id} className="flex w-[108px] shrink-0 justify-center">
-                        <input
-                          value={s.grades[e.id] ?? ""}
-                          onChange={(ev) => setGrade(s.id, e.id, ev.target.value)}
-                          inputMode="decimal"
-                          placeholder="–"
-                          className={`h-7 w-12 rounded-md text-center text-[13px] font-semibold tabular-nums outline-none transition-colors placeholder:text-muted focus:ring-2 focus:ring-primary/40 ${cellClass(v)}`}
-                        />
+                        <div className={`rounded-md ${cellBg(v)}`}>
+                          <input
+                            value={s.grades[e.id] ?? ""}
+                            onChange={(ev) => setGrade(s.id, e.id, ev.target.value)}
+                            inputMode="decimal"
+                            placeholder="–"
+                            className={`h-7 w-12 appearance-none rounded-md bg-transparent text-center text-[13px] font-semibold tabular-nums outline-none transition-colors placeholder:text-muted focus:ring-2 focus:ring-primary/40 ${cellText(v)}`}
+                          />
+                        </div>
                       </div>
                     );
                   })}
