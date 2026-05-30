@@ -15,6 +15,8 @@ import {
   Heart,
   Hammer,
   BookOpen,
+  Table2,
+  PieChart,
   type LucideIcon,
 } from "lucide-react";
 
@@ -22,10 +24,10 @@ import {
 
 type Dim = "ser" | "hacer" | "saber";
 
-const DIMS: { id: Dim; label: string; weight: number; icon: LucideIcon; accent: string }[] = [
-  { id: "ser", label: "Ser", weight: 0.3, icon: Heart, accent: "text-rose-500" },
-  { id: "hacer", label: "Hacer", weight: 0.4, icon: Hammer, accent: "text-primary" },
-  { id: "saber", label: "Saber", weight: 0.3, icon: BookOpen, accent: "text-sky-500" },
+const DIMS: { id: Dim; label: string; weight: number; icon: LucideIcon; accent: string; bar: string }[] = [
+  { id: "ser", label: "Ser", weight: 0.3, icon: Heart, accent: "text-rose-500", bar: "bg-rose-400" },
+  { id: "hacer", label: "Hacer", weight: 0.4, icon: Hammer, accent: "text-primary", bar: "bg-primary" },
+  { id: "saber", label: "Saber", weight: 0.3, icon: BookOpen, accent: "text-sky-500", bar: "bg-sky-400" },
 ];
 
 /* ---------------- datos ---------------- */
@@ -36,12 +38,6 @@ const FILTERS = [
   { label: "Materia: Matemáticas", active: true },
   { label: "Periodo: P2" },
   { label: "Docente: C. Ríos" },
-];
-
-const VIEW_TABS = [
-  { label: "Notas", active: true },
-  { label: "Comentarios" },
-  { label: "Asistencia" },
 ];
 
 type Evaluation = { id: string; dim: Dim; name: string };
@@ -87,10 +83,10 @@ const INITIAL_STUDENTS: Student[] = NAMES.map((name, i) => ({
 }));
 
 const DIST = [
-  { label: "Superior", pct: 20, bar: "bg-emerald-400" },
-  { label: "Alto", pct: 34, bar: "bg-primary" },
-  { label: "Básico", pct: 25, bar: "bg-amber-300" },
-  { label: "Bajo", pct: 21, bar: "bg-rose-300" },
+  { label: "Superior", pct: 20, bar: "bg-emerald-400", chip: "bg-s-success text-s-success-fg" },
+  { label: "Alto", pct: 34, bar: "bg-primary", chip: "bg-s-info text-s-info-fg" },
+  { label: "Básico", pct: 25, bar: "bg-amber-300", chip: "bg-s-warning text-s-warning-fg" },
+  { label: "Bajo", pct: 21, bar: "bg-rose-300", chip: "bg-s-error text-s-error-fg" },
 ];
 
 /* ---------------- cálculo ---------------- */
@@ -154,6 +150,7 @@ export default function CalificacionesPage() {
   const [evals, setEvals] = useState<Evaluation[]>(INITIAL_EVALS);
   const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
   const [activeDim, setActiveDim] = useState<Dim>("hacer");
+  const [tab, setTab] = useState<"libro" | "resumen">("libro");
   const counter = useRef(0);
 
   const activeEvals = evals.filter((e) => e.dim === activeDim);
@@ -186,6 +183,21 @@ export default function CalificacionesPage() {
     return p !== null && p < 3.0;
   });
 
+  const aprobados = students.filter((s) => {
+    const p = definitiva(s.grades, evals);
+    return p !== null && p >= 3.0;
+  }).length;
+
+  const dimGroup = (dim: Dim): number | null => {
+    const vals = students.map((s) => dimAvg(s.grades, evals, dim)).filter((v): v is number => v !== null);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  };
+
+  const TABS: { id: "libro" | "resumen"; label: string; icon: LucideIcon }[] = [
+    { id: "libro", label: "Libro de notas", icon: Table2 },
+    { id: "resumen", label: "Resumen", icon: PieChart },
+  ];
+
   return (
     <div className="flex flex-col gap-5 px-8 py-7">
       {/* ====== header ====== */}
@@ -213,231 +225,298 @@ export default function CalificacionesPage() {
         </div>
       </div>
 
-      {/* ====== filter bar ====== */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          {FILTERS.map((f) => (
+      {/* ====== tabs principales ====== */}
+      <div className="flex items-center gap-1 border-b border-line">
+        {TABS.map((t) => {
+          const Icon = t.icon;
+          const on = tab === t.id;
+          return (
             <button
-              key={f.label}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                f.active ? "bg-primary-tint text-primary" : "border border-line text-ink hover:bg-surface"
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors ${
+                on ? "border-primary font-semibold text-ink" : "border-transparent font-medium text-subtle hover:text-ink"
               }`}
             >
-              {f.label}
-              <ChevronDown className="h-3 w-3 opacity-70" />
+              <Icon className={`h-4 w-4 ${on ? "text-primary" : ""}`} />
+              {t.label}
+              {t.id === "resumen" && enRiesgo.length > 0 && (
+                <span className="rounded-full bg-s-error px-1.5 py-0.5 text-[10px] font-bold text-s-error-fg">{enRiesgo.length}</span>
+              )}
             </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5 rounded-lg bg-surface p-1">
-            {VIEW_TABS.map((t) => (
-              <button
-                key={t.label}
-                className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                  t.active ? "bg-card font-semibold text-ink" : "font-medium text-subtle hover:text-ink"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-line text-ink transition-colors hover:bg-surface">
-            <Maximize2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
+          );
+        })}
       </div>
 
-      {/* ====== resumen compacto (franja) ====== */}
-      <div className="flex flex-wrap items-stretch gap-3">
-        {/* definitiva grupo */}
-        <div className="flex min-w-[136px] flex-col justify-center gap-1 rounded-xl border border-line bg-card px-4 py-2.5">
-          <span className="text-[11px] font-medium text-subtle">Definitiva grupo</span>
-          <span className="text-2xl font-bold leading-none text-ink">{grupo === null ? "—" : grupo.toFixed(1)}</span>
-        </div>
-        {/* en riesgo */}
-        <div
-          title={enRiesgo.length ? enRiesgo.map((s) => s.name).join(", ") : "Ninguno"}
-          className="flex min-w-[120px] flex-col justify-center gap-1 rounded-xl border border-line bg-card px-4 py-2.5"
-        >
-          <span className="flex items-center gap-1 text-[11px] font-medium text-subtle">
-            <AlertTriangle className="h-3 w-3 text-danger" /> En riesgo
-          </span>
-          <span className="text-2xl font-bold leading-none text-danger">{enRiesgo.length}</span>
-        </div>
-        {/* distribución mini */}
-        <div className="flex min-w-[240px] flex-[2] flex-col justify-center gap-1.5 rounded-xl border border-line bg-card px-4 py-2.5">
-          <span className="text-[11px] font-medium text-subtle">Distribución de desempeño</span>
-          <div className="flex h-2 overflow-hidden rounded-full">
-            {DIST.map((d) => (
-              <span key={d.label} className={d.bar} style={{ width: `${d.pct}%` }} />
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-            {DIST.map((d) => (
-              <span key={d.label} className="flex items-center gap-1.5 text-[10px] text-subtle">
-                <span className={`h-2 w-2 rounded-full ${d.bar}`} />
-                {d.label} <span className="font-semibold text-ink">{d.pct}%</span>
-              </span>
-            ))}
-          </div>
-        </div>
-        {/* AI banner */}
-        <div className="flex min-w-[260px] flex-[2] items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-tint text-primary">
-            <Sparkles className="h-4 w-4" />
-          </span>
-          <div className="flex flex-1 flex-col">
-            <span className="text-[10px] font-bold tracking-[0.16em] text-primary">EDUSYNC AI</span>
-            <span className="text-xs leading-snug text-ink">Refuerzo sugerido: tutoría grupal en fracciones y álgebra.</span>
-          </div>
-          <button className="flex h-8 shrink-0 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90">
-            Generar plan
-          </button>
-        </div>
-      </div>
-
-      {/* ====== libro (ancho completo) ====== */}
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-line bg-card">
-        {/* tabs de dimensión */}
-        <div className="flex flex-col gap-3 border-b border-line p-4">
-          <div className="flex items-center gap-2">
-            {DIMS.map((d) => {
-              const Icon = d.icon;
-              const count = evals.filter((e) => e.dim === d.id).length;
-              const on = activeDim === d.id;
-              return (
+      {/* ================= TAB: LIBRO ================= */}
+      {tab === "libro" && (
+        <>
+          {/* filter bar */}
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-card px-3 py-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              {FILTERS.map((f) => (
                 <button
-                  key={d.id}
-                  onClick={() => setActiveDim(d.id)}
-                  className={`flex flex-1 items-center justify-center gap-2.5 rounded-xl border px-4 py-3 transition-colors ${
-                    on ? "border-primary bg-primary-tint" : "border-line bg-card hover:bg-surface"
+                  key={f.label}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                    f.active ? "bg-primary-tint text-primary" : "border border-line text-ink hover:bg-surface"
                   }`}
                 >
-                  <Icon className={`h-5 w-5 ${on ? "text-primary" : d.accent}`} />
-                  <div className="flex flex-col items-start">
-                    <span className={`text-sm font-bold ${on ? "text-primary" : "text-ink"}`}>{d.label}</span>
-                    <span className="text-[11px] text-subtle">{count} {count === 1 ? "nota" : "notas"}</span>
-                  </div>
-                  <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${on ? "bg-primary text-white" : "bg-surface text-subtle"}`}>
-                    {Math.round(d.weight * 100)}%
-                  </span>
+                  {f.label}
+                  <ChevronDown className="h-3 w-3 opacity-70" />
                 </button>
-              );
-            })}
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-subtle">
-              Editando <span className="font-semibold text-ink">{activeMeta.label}</span> · las notas de esta sección promedian y pesan {Math.round(activeMeta.weight * 100)}% en la definitiva
-            </span>
-            <button
-              onClick={addEval}
-              className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-            >
-              <Plus className="h-3.5 w-3.5" /> Agregar nota a {activeMeta.label}
+              ))}
+            </div>
+            <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line text-ink transition-colors hover:bg-surface">
+              <Maximize2 className="h-3.5 w-3.5" />
             </button>
           </div>
-        </div>
 
-        {/* tabla */}
-        <div className="overflow-x-auto">
-          <div className="min-w-max">
-            <div className="flex items-stretch gap-2 border-b border-line bg-surface px-5 py-2.5">
-              <span className="flex w-[190px] shrink-0 items-center text-[10px] font-bold tracking-[0.1em] text-subtle">ESTUDIANTE</span>
-              {activeEvals.map((e) => (
-                <div key={e.id} className="group flex w-[108px] shrink-0 items-center gap-1">
-                  <input
-                    value={e.name}
-                    onChange={(ev) => updateEval(e.id, ev.target.value)}
-                    className="w-full truncate bg-transparent text-[11px] font-bold text-ink outline-none focus:rounded focus:bg-card focus:px-1"
-                    title="Nombre de la nota"
-                  />
-                  <button
-                    onClick={() => removeEval(e.id)}
-                    title="Quitar nota"
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity hover:bg-s-error hover:text-s-error-fg group-hover:opacity-100"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={addEval}
-                title={`Agregar nota a ${activeMeta.label}`}
-                className="flex w-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-line text-subtle transition-colors hover:border-primary hover:text-primary"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-              <span className="flex w-[70px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-subtle">
-                PROM·{activeMeta.label.toUpperCase()}
-              </span>
-              <span className="flex w-[60px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-ink">DEFINITIVA</span>
-            </div>
-
-            {students.map((s, i) => {
-              const da = dimAvg(s.grades, evals, activeDim);
-              const def = definitiva(s.grades, evals);
-              const l = letra(def);
-              return (
-                <div key={s.id} className={`flex items-center gap-2 px-5 py-2 ${i < students.length - 1 ? "border-b border-line" : ""}`}>
-                  <div className="flex w-[190px] shrink-0 items-center gap-2.5">
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>{s.initials}</span>
-                    <span className="text-[13px] font-semibold text-ink">{s.name}</span>
-                  </div>
-                  {activeEvals.map((e) => {
-                    const v = num(s.grades[e.id] ?? "");
-                    return (
-                      <div key={e.id} className="flex w-[108px] shrink-0 justify-center">
-                        <div className={`rounded-md ${cellBg(v)}`}>
-                          <input
-                            value={s.grades[e.id] ?? ""}
-                            onChange={(ev) => setGrade(s.id, e.id, ev.target.value)}
-                            inputMode="decimal"
-                            placeholder="–"
-                            className={`h-7 w-12 appearance-none rounded-md bg-transparent text-center text-[13px] font-semibold tabular-nums outline-none transition-colors placeholder:text-muted focus:ring-2 focus:ring-primary/40 ${cellText(v)}`}
-                          />
-                        </div>
+          {/* libro */}
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-line bg-card">
+            {/* tabs de dimensión */}
+            <div className="flex flex-col gap-3 border-b border-line p-4">
+              <div className="flex items-center gap-2">
+                {DIMS.map((d) => {
+                  const Icon = d.icon;
+                  const count = evals.filter((e) => e.dim === d.id).length;
+                  const on = activeDim === d.id;
+                  return (
+                    <button
+                      key={d.id}
+                      onClick={() => setActiveDim(d.id)}
+                      className={`flex flex-1 items-center justify-center gap-2.5 rounded-xl border px-4 py-3 transition-colors ${
+                        on ? "border-primary bg-primary-tint" : "border-line bg-card hover:bg-surface"
+                      }`}
+                    >
+                      <Icon className={`h-5 w-5 ${on ? "text-primary" : d.accent}`} />
+                      <div className="flex flex-col items-start">
+                        <span className={`text-sm font-bold ${on ? "text-primary" : "text-ink"}`}>{d.label}</span>
+                        <span className="text-[11px] text-subtle">{count} {count === 1 ? "nota" : "notas"}</span>
                       </div>
-                    );
-                  })}
-                  <span className="w-9 shrink-0" />
-                  <div className="flex w-[70px] shrink-0 justify-end">
-                    <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${pillClass(da)}`}>
-                      {da === null ? "—" : da.toFixed(1)}
-                    </span>
-                  </div>
-                  <div className="flex w-[60px] shrink-0 items-center justify-end gap-1">
-                    <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${l.chip}`}>
-                      {def === null ? "—" : def.toFixed(1)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-
-            {activeEvals.length === 0 && (
-              <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-                <span className="text-sm font-semibold text-ink">Sin notas en {activeMeta.label} todavía</span>
-                <span className="text-xs text-subtle">Agrega la primera nota de esta sección.</span>
-                <button onClick={addEval} className="mt-1 flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-white">
+                      <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${on ? "bg-primary text-white" : "bg-surface text-subtle"}`}>
+                        {Math.round(d.weight * 100)}%
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-subtle">
+                  Editando <span className="font-semibold text-ink">{activeMeta.label}</span> · las notas de esta sección promedian y pesan {Math.round(activeMeta.weight * 100)}% en la definitiva
+                </span>
+                <button
+                  onClick={addEval}
+                  className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                >
                   <Plus className="h-3.5 w-3.5" /> Agregar nota a {activeMeta.label}
                 </button>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* footer */}
-        <div className="flex items-center justify-between border-t border-line bg-surface px-5 py-3">
-          <div className="flex items-center gap-3 text-xs">
-            <span className="text-subtle">Definitiva grupo: <span className="font-semibold text-ink">{grupo === null ? "—" : grupo.toFixed(1)}</span></span>
-            <span className="text-subtle">·</span>
-            <span className="font-medium text-danger">{enRiesgo.length} en riesgo</span>
-            <span className="text-subtle">·</span>
-            <span className="text-subtle">Ser 30 · Hacer 40 · Saber 30</span>
+            {/* tabla */}
+            <div className="overflow-x-auto">
+              <div className="min-w-max">
+                <div className="flex items-stretch gap-2 border-b border-line bg-surface px-5 py-2.5">
+                  <span className="flex w-[190px] shrink-0 items-center text-[10px] font-bold tracking-[0.1em] text-subtle">ESTUDIANTE</span>
+                  {activeEvals.map((e) => (
+                    <div key={e.id} className="group flex w-[108px] shrink-0 items-center gap-1">
+                      <input
+                        value={e.name}
+                        onChange={(ev) => updateEval(e.id, ev.target.value)}
+                        className="w-full truncate bg-transparent text-[11px] font-bold text-ink outline-none focus:rounded focus:bg-card focus:px-1"
+                        title="Nombre de la nota"
+                      />
+                      <button
+                        onClick={() => removeEval(e.id)}
+                        title="Quitar nota"
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity hover:bg-s-error hover:text-s-error-fg group-hover:opacity-100"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={addEval}
+                    title={`Agregar nota a ${activeMeta.label}`}
+                    className="flex w-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-line text-subtle transition-colors hover:border-primary hover:text-primary"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                  <span className="flex w-[70px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-subtle">
+                    PROM·{activeMeta.label.toUpperCase()}
+                  </span>
+                  <span className="flex w-[60px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-ink">DEFINITIVA</span>
+                </div>
+
+                {students.map((s, i) => {
+                  const da = dimAvg(s.grades, evals, activeDim);
+                  const def = definitiva(s.grades, evals);
+                  const l = letra(def);
+                  return (
+                    <div key={s.id} className={`flex items-center gap-2 px-5 py-2 ${i < students.length - 1 ? "border-b border-line" : ""}`}>
+                      <div className="flex w-[190px] shrink-0 items-center gap-2.5">
+                        <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>{s.initials}</span>
+                        <span className="text-[13px] font-semibold text-ink">{s.name}</span>
+                      </div>
+                      {activeEvals.map((e) => {
+                        const v = num(s.grades[e.id] ?? "");
+                        return (
+                          <div key={e.id} className="flex w-[108px] shrink-0 justify-center">
+                            <div className={`rounded-md ${cellBg(v)}`}>
+                              <input
+                                value={s.grades[e.id] ?? ""}
+                                onChange={(ev) => setGrade(s.id, e.id, ev.target.value)}
+                                inputMode="decimal"
+                                placeholder="–"
+                                className={`h-7 w-12 appearance-none rounded-md bg-transparent text-center text-[13px] font-semibold tabular-nums outline-none transition-colors placeholder:text-muted focus:ring-2 focus:ring-primary/40 ${cellText(v)}`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <span className="w-9 shrink-0" />
+                      <div className="flex w-[70px] shrink-0 justify-end">
+                        <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${pillClass(da)}`}>
+                          {da === null ? "—" : da.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="flex w-[60px] shrink-0 items-center justify-end gap-1">
+                        <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${l.chip}`}>
+                          {def === null ? "—" : def.toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {activeEvals.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+                    <span className="text-sm font-semibold text-ink">Sin notas en {activeMeta.label} todavía</span>
+                    <span className="text-xs text-subtle">Agrega la primera nota de esta sección.</span>
+                    <button onClick={addEval} className="mt-1 flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-white">
+                      <Plus className="h-3.5 w-3.5" /> Agregar nota a {activeMeta.label}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* footer */}
+            <div className="flex items-center justify-between border-t border-line bg-surface px-5 py-3">
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-subtle">Definitiva grupo: <span className="font-semibold text-ink">{grupo === null ? "—" : grupo.toFixed(1)}</span></span>
+                <span className="text-subtle">·</span>
+                <span className="font-medium text-danger">{enRiesgo.length} en riesgo</span>
+                <span className="text-subtle">·</span>
+                <span className="text-subtle">Ser 30 · Hacer 40 · Saber 30</span>
+              </div>
+              <span className="text-[11px] text-subtle">Cambia de sección arriba para calificar Ser / Hacer / Saber</span>
+            </div>
           </div>
-          <span className="text-[11px] text-subtle">Cambia de sección arriba para calificar Ser / Hacer / Saber</span>
+        </>
+      )}
+
+      {/* ================= TAB: RESUMEN ================= */}
+      {tab === "resumen" && (
+        <div className="flex flex-col gap-5">
+          {/* KPIs */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {[
+              { label: "Definitiva grupo", value: grupo === null ? "—" : grupo.toFixed(1), tone: "text-ink" },
+              { label: "Estudiantes en riesgo", value: String(enRiesgo.length), tone: "text-danger" },
+              { label: "Aprobados (≥ 3.0)", value: `${aprobados}/${students.length}`, tone: "text-emerald-600" },
+              { label: "Evaluaciones", value: String(evals.length), tone: "text-ink" },
+            ].map((k) => (
+              <div key={k.label} className="flex flex-col gap-1.5 rounded-2xl border border-line bg-card p-5">
+                <span className="text-[11px] font-medium text-subtle">{k.label}</span>
+                <span className={`text-[28px] font-bold leading-none ${k.tone}`}>{k.value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-5 xl:flex-row">
+            {/* izquierda */}
+            <div className="flex flex-1 flex-col gap-5">
+              {/* promedio por dimensión */}
+              <div className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5">
+                <h3 className="text-sm font-semibold text-ink">Promedio del grupo por dimensión</h3>
+                <div className="flex flex-col gap-3.5">
+                  {DIMS.map((d) => {
+                    const Icon = d.icon;
+                    const avg = dimGroup(d.id);
+                    return (
+                      <div key={d.id} className="flex items-center gap-3">
+                        <span className="flex w-24 shrink-0 items-center gap-1.5 text-[13px] font-medium text-ink">
+                          <Icon className={`h-4 w-4 ${d.accent}`} /> {d.label}
+                        </span>
+                        <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface">
+                          <span className={`block h-full rounded-full ${d.bar}`} style={{ width: `${((avg ?? 0) / 5) * 100}%` }} />
+                        </span>
+                        <span className="w-10 text-right text-[13px] font-bold text-ink">{avg === null ? "—" : avg.toFixed(1)}</span>
+                        <span className="w-9 text-right text-[11px] text-subtle">{Math.round(d.weight * 100)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* distribución */}
+              <div className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5">
+                <h3 className="text-sm font-semibold text-ink">Distribución de desempeño</h3>
+                <div className="flex h-2.5 overflow-hidden rounded-full">
+                  {DIST.map((d) => <span key={d.label} className={d.bar} style={{ width: `${d.pct}%` }} />)}
+                </div>
+                <div className="flex flex-col gap-2">
+                  {DIST.map((d) => (
+                    <div key={d.label} className="flex items-center justify-between">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${d.chip}`}>{d.label}</span>
+                      <span className="text-[13px] font-semibold text-ink">{d.pct}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* derecha */}
+            <div className="flex w-full flex-col gap-5 xl:w-[360px] xl:shrink-0">
+              {/* riesgo */}
+              <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-5">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-ink">Estudiantes en riesgo</h3>
+                  <span className="flex items-center gap-1 rounded-full bg-s-error px-1.5 py-0.5 text-[10px] font-bold text-s-error-fg">
+                    <AlertTriangle className="h-2.5 w-2.5" /> {enRiesgo.length}
+                  </span>
+                </div>
+                {enRiesgo.map((s) => {
+                  const p = definitiva(s.grades, evals)!;
+                  return (
+                    <div key={s.id} className="flex items-center gap-2.5">
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>{s.initials}</span>
+                      <span className="flex-1 text-[13px] font-medium text-ink">{s.name}</span>
+                      <span className="text-[12px] font-bold text-danger">Def. {p.toFixed(1)}</span>
+                    </div>
+                  );
+                })}
+                {enRiesgo.length === 0 && <span className="text-xs text-subtle">Ningún estudiante por debajo de 3.0 🎉</span>}
+              </div>
+
+              {/* AI */}
+              <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5">
+                <div className="flex items-center gap-1.5 text-primary">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-bold tracking-[0.18em]">EDUSYNC AI</span>
+                </div>
+                <h4 className="text-[13px] font-semibold text-ink">Refuerzo personalizado sugerido</h4>
+                <p className="text-xs leading-relaxed text-subtle">Programa 3 sesiones de tutoría grupal con foco en fracciones y álgebra básica.</p>
+                <div className="flex items-center gap-2">
+                  <button className="flex h-8 flex-1 items-center justify-center rounded-lg bg-primary text-xs font-semibold text-white transition-opacity hover:opacity-90">Generar plan</button>
+                  <button className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium text-subtle hover:text-ink">Descartar</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
