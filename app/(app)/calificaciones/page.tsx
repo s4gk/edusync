@@ -28,9 +28,6 @@ const DIMS: { id: Dim; label: string; weight: number; icon: LucideIcon; accent: 
   { id: "saber", label: "Saber", weight: 0.3, icon: BookOpen, accent: "text-sky-500" },
 ];
 
-const DIM_LABEL: Record<Dim, string> = { ser: "Ser", hacer: "Hacer", saber: "Saber" };
-const DIM_WEIGHT: Record<Dim, number> = { ser: 0.3, hacer: 0.4, saber: 0.3 };
-
 /* ---------------- datos ---------------- */
 
 const FILTERS = [
@@ -54,7 +51,7 @@ type Student = {
   name: string;
   initials: string;
   avatar: string;
-  grades: Record<string, string>; // evalId -> nota
+  grades: Record<string, string>;
 };
 
 const AVATARS = [
@@ -77,7 +74,6 @@ const INITIAL_EVALS: Evaluation[] = [
   { id: "sab2", dim: "saber", name: "Parcial" },
 ];
 
-// Notas iniciales deterministas (sin Math.random → sin mismatch de hidratación).
 const BASES = [4.6, 3.9, 4.9, 2.9, 4.1, 3.3, 4.5, 2.7, 4.0, 3.4];
 const OFFSETS: Record<string, number> = { ser1: 0.2, ser2: 0.1, hac1: 0.1, hac2: -0.2, sab1: 0.0, sab2: -0.1 };
 const clampNote = (v: number) => Math.max(2.0, Math.min(5.0, v));
@@ -91,10 +87,10 @@ const INITIAL_STUDENTS: Student[] = NAMES.map((name, i) => ({
 }));
 
 const DIST = [
-  { label: "Superior", pct: 20, bar: "bg-emerald-400", chip: "bg-s-success text-s-success-fg" },
-  { label: "Alto", pct: 34, bar: "bg-primary", chip: "bg-primary-tint text-primary" },
-  { label: "Básico", pct: 25, bar: "bg-amber-300", chip: "bg-s-warning text-s-warning-fg" },
-  { label: "Bajo", pct: 21, bar: "bg-rose-300", chip: "bg-s-error text-s-error-fg" },
+  { label: "Superior", pct: 20, bar: "bg-emerald-400" },
+  { label: "Alto", pct: 34, bar: "bg-primary" },
+  { label: "Básico", pct: 25, bar: "bg-amber-300" },
+  { label: "Bajo", pct: 21, bar: "bg-rose-300" },
 ];
 
 /* ---------------- cálculo ---------------- */
@@ -104,14 +100,12 @@ function num(v: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-/** Promedio simple de una dimensión (promedio de sus notas registradas). */
 function dimAvg(grades: Record<string, string>, evals: Evaluation[], dim: Dim): number | null {
   const vals = evals.filter((e) => e.dim === dim).map((e) => num(grades[e.id] ?? "")).filter((v): v is number => v !== null);
   if (!vals.length) return null;
   return vals.reduce((a, b) => a + b, 0) / vals.length;
 }
 
-/** Definitiva = Ser·30 + Hacer·40 + Saber·30, renormalizando entre las dimensiones con notas. */
 function definitiva(grades: Record<string, string>, evals: Evaluation[]): number | null {
   let acc = 0;
   let w = 0;
@@ -246,198 +240,193 @@ export default function CalificacionesPage() {
         </div>
       </div>
 
-      {/* ====== contenido ====== */}
-      <div className="flex flex-col gap-5 xl:flex-row">
-        {/* libro */}
-        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-card">
-          {/* tabs de dimensión */}
-          <div className="flex flex-col gap-3 border-b border-line p-4">
-            <div className="flex items-center gap-2">
-              {DIMS.map((d) => {
-                const Icon = d.icon;
-                const count = evals.filter((e) => e.dim === d.id).length;
-                const on = activeDim === d.id;
-                return (
-                  <button
-                    key={d.id}
-                    onClick={() => setActiveDim(d.id)}
-                    className={`flex flex-1 items-center justify-center gap-2.5 rounded-xl border px-4 py-3 transition-colors ${
-                      on ? "border-primary bg-primary-tint" : "border-line bg-card hover:bg-surface"
-                    }`}
-                  >
-                    <Icon className={`h-5 w-5 ${on ? "text-primary" : d.accent}`} />
-                    <div className="flex flex-col items-start">
-                      <span className={`text-sm font-bold ${on ? "text-primary" : "text-ink"}`}>{d.label}</span>
-                      <span className="text-[11px] text-subtle">{count} {count === 1 ? "nota" : "notas"}</span>
-                    </div>
-                    <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${on ? "bg-primary text-white" : "bg-surface text-subtle"}`}>
-                      {Math.round(d.weight * 100)}%
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-subtle">
-                Editando <span className="font-semibold text-ink">{activeMeta.label}</span> · las notas de esta sección promedian y pesan {Math.round(activeMeta.weight * 100)}% en la definitiva
+      {/* ====== resumen compacto (franja) ====== */}
+      <div className="flex flex-wrap items-stretch gap-3">
+        {/* definitiva grupo */}
+        <div className="flex min-w-[136px] flex-col justify-center gap-1 rounded-xl border border-line bg-card px-4 py-2.5">
+          <span className="text-[11px] font-medium text-subtle">Definitiva grupo</span>
+          <span className="text-2xl font-bold leading-none text-ink">{grupo === null ? "—" : grupo.toFixed(1)}</span>
+        </div>
+        {/* en riesgo */}
+        <div
+          title={enRiesgo.length ? enRiesgo.map((s) => s.name).join(", ") : "Ninguno"}
+          className="flex min-w-[120px] flex-col justify-center gap-1 rounded-xl border border-line bg-card px-4 py-2.5"
+        >
+          <span className="flex items-center gap-1 text-[11px] font-medium text-subtle">
+            <AlertTriangle className="h-3 w-3 text-danger" /> En riesgo
+          </span>
+          <span className="text-2xl font-bold leading-none text-danger">{enRiesgo.length}</span>
+        </div>
+        {/* distribución mini */}
+        <div className="flex min-w-[240px] flex-[2] flex-col justify-center gap-1.5 rounded-xl border border-line bg-card px-4 py-2.5">
+          <span className="text-[11px] font-medium text-subtle">Distribución de desempeño</span>
+          <div className="flex h-2 overflow-hidden rounded-full">
+            {DIST.map((d) => (
+              <span key={d.label} className={d.bar} style={{ width: `${d.pct}%` }} />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+            {DIST.map((d) => (
+              <span key={d.label} className="flex items-center gap-1.5 text-[10px] text-subtle">
+                <span className={`h-2 w-2 rounded-full ${d.bar}`} />
+                {d.label} <span className="font-semibold text-ink">{d.pct}%</span>
               </span>
-              <button
-                onClick={addEval}
-                className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-              >
-                <Plus className="h-3.5 w-3.5" /> Agregar nota a {activeMeta.label}
-              </button>
-            </div>
+            ))}
           </div>
+        </div>
+        {/* AI banner */}
+        <div className="flex min-w-[260px] flex-[2] items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-tint text-primary">
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="flex flex-1 flex-col">
+            <span className="text-[10px] font-bold tracking-[0.16em] text-primary">EDUSYNC AI</span>
+            <span className="text-xs leading-snug text-ink">Refuerzo sugerido: tutoría grupal en fracciones y álgebra.</span>
+          </div>
+          <button className="flex h-8 shrink-0 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90">
+            Generar plan
+          </button>
+        </div>
+      </div>
 
-          {/* tabla */}
-          <div className="overflow-x-auto">
-            <div className="min-w-max">
-              <div className="flex items-stretch gap-2 border-b border-line bg-surface px-5 py-2.5">
-                <span className="flex w-[190px] shrink-0 items-center text-[10px] font-bold tracking-[0.1em] text-subtle">ESTUDIANTE</span>
-                {activeEvals.map((e) => (
-                  <div key={e.id} className="group flex w-[108px] shrink-0 items-center gap-1">
-                    <input
-                      value={e.name}
-                      onChange={(ev) => updateEval(e.id, ev.target.value)}
-                      className="w-full truncate bg-transparent text-[11px] font-bold text-ink outline-none focus:rounded focus:bg-card focus:px-1"
-                      title="Nombre de la nota"
-                    />
-                    <button
-                      onClick={() => removeEval(e.id)}
-                      title="Quitar nota"
-                      className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity hover:bg-s-error hover:text-s-error-fg group-hover:opacity-100"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
+      {/* ====== libro (ancho completo) ====== */}
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-line bg-card">
+        {/* tabs de dimensión */}
+        <div className="flex flex-col gap-3 border-b border-line p-4">
+          <div className="flex items-center gap-2">
+            {DIMS.map((d) => {
+              const Icon = d.icon;
+              const count = evals.filter((e) => e.dim === d.id).length;
+              const on = activeDim === d.id;
+              return (
                 <button
-                  onClick={addEval}
-                  title={`Agregar nota a ${activeMeta.label}`}
-                  className="flex w-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-line text-subtle transition-colors hover:border-primary hover:text-primary"
+                  key={d.id}
+                  onClick={() => setActiveDim(d.id)}
+                  className={`flex flex-1 items-center justify-center gap-2.5 rounded-xl border px-4 py-3 transition-colors ${
+                    on ? "border-primary bg-primary-tint" : "border-line bg-card hover:bg-surface"
+                  }`}
                 >
-                  <Plus className="h-4 w-4" />
-                </button>
-                <span className="flex w-[70px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-subtle">
-                  PROM·{activeMeta.label.toUpperCase()}
-                </span>
-                <span className="flex w-[60px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-ink">DEFINITIVA</span>
-              </div>
-
-              {students.map((s, i) => {
-                const da = dimAvg(s.grades, evals, activeDim);
-                const def = definitiva(s.grades, evals);
-                const l = letra(def);
-                return (
-                  <div key={s.id} className={`flex items-center gap-2 px-5 py-2 ${i < students.length - 1 ? "border-b border-line" : ""}`}>
-                    <div className="flex w-[190px] shrink-0 items-center gap-2.5">
-                      <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>{s.initials}</span>
-                      <span className="text-[13px] font-semibold text-ink">{s.name}</span>
-                    </div>
-                    {activeEvals.map((e) => {
-                      const v = num(s.grades[e.id] ?? "");
-                      return (
-                        <div key={e.id} className="flex w-[108px] shrink-0 justify-center">
-                          <input
-                            value={s.grades[e.id] ?? ""}
-                            onChange={(ev) => setGrade(s.id, e.id, ev.target.value)}
-                            inputMode="decimal"
-                            placeholder="–"
-                            className={`h-7 w-12 rounded-md text-center text-[13px] font-semibold tabular-nums outline-none transition-colors placeholder:text-muted focus:ring-2 focus:ring-primary/40 ${cellClass(v)}`}
-                          />
-                        </div>
-                      );
-                    })}
-                    <span className="w-9 shrink-0" />
-                    <div className="flex w-[70px] shrink-0 justify-end">
-                      <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${pillClass(da)}`}>
-                        {da === null ? "—" : da.toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="flex w-[60px] shrink-0 items-center justify-end gap-1">
-                      <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${l.chip}`}>
-                        {def === null ? "—" : def.toFixed(1)}
-                      </span>
-                    </div>
+                  <Icon className={`h-5 w-5 ${on ? "text-primary" : d.accent}`} />
+                  <div className="flex flex-col items-start">
+                    <span className={`text-sm font-bold ${on ? "text-primary" : "text-ink"}`}>{d.label}</span>
+                    <span className="text-[11px] text-subtle">{count} {count === 1 ? "nota" : "notas"}</span>
                   </div>
-                );
-              })}
-
-              {activeEvals.length === 0 && (
-                <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-                  <span className="text-sm font-semibold text-ink">Sin notas en {activeMeta.label} todavía</span>
-                  <span className="text-xs text-subtle">Agrega la primera nota de esta sección.</span>
-                  <button onClick={addEval} className="mt-1 flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-white">
-                    <Plus className="h-3.5 w-3.5" /> Agregar nota a {activeMeta.label}
-                  </button>
-                </div>
-              )}
-            </div>
+                  <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${on ? "bg-primary text-white" : "bg-surface text-subtle"}`}>
+                    {Math.round(d.weight * 100)}%
+                  </span>
+                </button>
+              );
+            })}
           </div>
-
-          {/* footer */}
-          <div className="flex items-center justify-between border-t border-line bg-surface px-5 py-3">
-            <div className="flex items-center gap-3 text-xs">
-              <span className="text-subtle">Definitiva grupo: <span className="font-semibold text-ink">{grupo === null ? "—" : grupo.toFixed(1)}</span></span>
-              <span className="text-subtle">·</span>
-              <span className="font-medium text-danger">{enRiesgo.length} en riesgo</span>
-              <span className="text-subtle">·</span>
-              <span className="text-subtle">Ser 30 · Hacer 40 · Saber 30</span>
-            </div>
-            <span className="text-[11px] text-subtle">Cambia de sección arriba para calificar Ser / Hacer / Saber</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-subtle">
+              Editando <span className="font-semibold text-ink">{activeMeta.label}</span> · las notas de esta sección promedian y pesan {Math.round(activeMeta.weight * 100)}% en la definitiva
+            </span>
+            <button
+              onClick={addEval}
+              className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              <Plus className="h-3.5 w-3.5" /> Agregar nota a {activeMeta.label}
+            </button>
           </div>
         </div>
 
-        {/* sidebar derecha */}
-        <div className="flex w-full flex-col gap-4 xl:w-[340px] xl:shrink-0">
-          <div className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5">
-            <h3 className="text-sm font-semibold text-ink">Distribución de desempeño</h3>
-            <div className="flex h-2.5 overflow-hidden rounded-full">
-              {DIST.map((d) => <span key={d.label} className={d.bar} style={{ width: `${d.pct}%` }} />)}
-            </div>
-            <div className="flex flex-col gap-2">
-              {DIST.map((d) => (
-                <div key={d.label} className="flex items-center justify-between">
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${d.chip}`}>{d.label}</span>
-                  <span className="text-[13px] font-semibold text-ink">{d.pct}%</span>
+        {/* tabla */}
+        <div className="overflow-x-auto">
+          <div className="min-w-max">
+            <div className="flex items-stretch gap-2 border-b border-line bg-surface px-5 py-2.5">
+              <span className="flex w-[190px] shrink-0 items-center text-[10px] font-bold tracking-[0.1em] text-subtle">ESTUDIANTE</span>
+              {activeEvals.map((e) => (
+                <div key={e.id} className="group flex w-[108px] shrink-0 items-center gap-1">
+                  <input
+                    value={e.name}
+                    onChange={(ev) => updateEval(e.id, ev.target.value)}
+                    className="w-full truncate bg-transparent text-[11px] font-bold text-ink outline-none focus:rounded focus:bg-card focus:px-1"
+                    title="Nombre de la nota"
+                  />
+                  <button
+                    onClick={() => removeEval(e.id)}
+                    title="Quitar nota"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity hover:bg-s-error hover:text-s-error-fg group-hover:opacity-100"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
               ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-5">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-ink">Estudiantes en riesgo</h3>
-              <span className="flex items-center gap-1 rounded-full bg-s-error px-1.5 py-0.5 text-[10px] font-bold text-s-error-fg">
-                <AlertTriangle className="h-2.5 w-2.5" /> {enRiesgo.length}
+              <button
+                onClick={addEval}
+                title={`Agregar nota a ${activeMeta.label}`}
+                className="flex w-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-line text-subtle transition-colors hover:border-primary hover:text-primary"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              <span className="flex w-[70px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-subtle">
+                PROM·{activeMeta.label.toUpperCase()}
               </span>
+              <span className="flex w-[60px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-ink">DEFINITIVA</span>
             </div>
-            {enRiesgo.map((s) => {
-              const p = definitiva(s.grades, evals)!;
+
+            {students.map((s, i) => {
+              const da = dimAvg(s.grades, evals, activeDim);
+              const def = definitiva(s.grades, evals);
+              const l = letra(def);
               return (
-                <div key={s.id} className="flex items-center gap-2.5">
-                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>{s.initials}</span>
-                  <span className="flex-1 text-[13px] font-medium text-ink">{s.name}</span>
-                  <span className="text-[12px] font-bold text-danger">Def. {p.toFixed(1)}</span>
+                <div key={s.id} className={`flex items-center gap-2 px-5 py-2 ${i < students.length - 1 ? "border-b border-line" : ""}`}>
+                  <div className="flex w-[190px] shrink-0 items-center gap-2.5">
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>{s.initials}</span>
+                    <span className="text-[13px] font-semibold text-ink">{s.name}</span>
+                  </div>
+                  {activeEvals.map((e) => {
+                    const v = num(s.grades[e.id] ?? "");
+                    return (
+                      <div key={e.id} className="flex w-[108px] shrink-0 justify-center">
+                        <input
+                          value={s.grades[e.id] ?? ""}
+                          onChange={(ev) => setGrade(s.id, e.id, ev.target.value)}
+                          inputMode="decimal"
+                          placeholder="–"
+                          className={`h-7 w-12 rounded-md text-center text-[13px] font-semibold tabular-nums outline-none transition-colors placeholder:text-muted focus:ring-2 focus:ring-primary/40 ${cellClass(v)}`}
+                        />
+                      </div>
+                    );
+                  })}
+                  <span className="w-9 shrink-0" />
+                  <div className="flex w-[70px] shrink-0 justify-end">
+                    <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${pillClass(da)}`}>
+                      {da === null ? "—" : da.toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="flex w-[60px] shrink-0 items-center justify-end gap-1">
+                    <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${l.chip}`}>
+                      {def === null ? "—" : def.toFixed(1)}
+                    </span>
+                  </div>
                 </div>
               );
             })}
-            {enRiesgo.length === 0 && <span className="text-xs text-subtle">Ningún estudiante por debajo de 3.0 🎉</span>}
-          </div>
 
-          <div className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-5">
-            <div className="flex items-center gap-1.5 text-primary">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-bold tracking-[0.18em]">EDUSYNC AI</span>
-            </div>
-            <h4 className="text-[13px] font-semibold text-ink">Refuerzo personalizado sugerido</h4>
-            <p className="text-xs leading-relaxed text-subtle">Programa 3 sesiones de tutoría grupal con foco en fracciones y álgebra básica.</p>
-            <div className="flex items-center gap-2">
-              <button className="flex h-8 flex-1 items-center justify-center rounded-lg bg-primary text-xs font-semibold text-white transition-opacity hover:opacity-90">Generar plan</button>
-              <button className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium text-subtle hover:text-ink">Descartar</button>
-            </div>
+            {activeEvals.length === 0 && (
+              <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+                <span className="text-sm font-semibold text-ink">Sin notas en {activeMeta.label} todavía</span>
+                <span className="text-xs text-subtle">Agrega la primera nota de esta sección.</span>
+                <button onClick={addEval} className="mt-1 flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-white">
+                  <Plus className="h-3.5 w-3.5" /> Agregar nota a {activeMeta.label}
+                </button>
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* footer */}
+        <div className="flex items-center justify-between border-t border-line bg-surface px-5 py-3">
+          <div className="flex items-center gap-3 text-xs">
+            <span className="text-subtle">Definitiva grupo: <span className="font-semibold text-ink">{grupo === null ? "—" : grupo.toFixed(1)}</span></span>
+            <span className="text-subtle">·</span>
+            <span className="font-medium text-danger">{enRiesgo.length} en riesgo</span>
+            <span className="text-subtle">·</span>
+            <span className="text-subtle">Ser 30 · Hacer 40 · Saber 30</span>
+          </div>
+          <span className="text-[11px] text-subtle">Cambia de sección arriba para calificar Ser / Hacer / Saber</span>
         </div>
       </div>
     </div>
