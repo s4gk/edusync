@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ShieldCheck,
   Sparkles,
@@ -29,6 +30,7 @@ const STATS = [
 const FOOTER_LINKS = ["Términos", "Privacidad", "Estatus del sistema"];
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("maria.rojas@colegiosanmateo.edu.co");
   const [password, setPassword] = useState("contraseña");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,7 +41,7 @@ export default function LoginPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     // Maqueta: aquí se conectaría con el backend de autenticación de Edusync.
-    alert(`Iniciando sesión como:\n${email}`);
+    router.push("/dashboard");
   }
 
   return (
@@ -147,6 +149,7 @@ export default function LoginPage() {
           <div className="flex flex-col gap-2.5">
             <button
               type="button"
+              onClick={() => router.push("/dashboard")}
               className="flex items-center justify-center gap-2 rounded-[10px] border border-line py-3.5 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
             >
               <Chrome className="h-4 w-4" />
@@ -154,6 +157,7 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
+              onClick={() => router.push("/dashboard")}
               className="flex items-center justify-center gap-2 rounded-[10px] border border-line py-3.5 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
             >
               <Square className="h-3.5 w-3.5" />

@@ -15,10 +15,10 @@ import {
   Mail,
   Settings,
   ChevronDown,
-  EllipsisVertical,
   type LucideIcon,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-context";
+import { ProfileMenu } from "@/components/profile-menu";
 
 type NavItem = {
   label: string;
@@ -188,24 +188,8 @@ export function Sidebar() {
       <div className="h-px bg-line-soft" />
 
       {/* profile */}
-      <div className={`flex items-center gap-2.5 p-4 ${collapsed ? "justify-center" : ""}`}>
-        <button
-          title="María Rojas · Rectora"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line-soft bg-line-soft text-[13px] font-semibold text-ink transition-colors hover:bg-line"
-        >
-          MR
-        </button>
-        {!collapsed && (
-          <>
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <span className="truncate text-[13px] font-bold text-ink">María Rojas</span>
-              <span className="truncate text-[11px] font-medium text-subtle">Rectora</span>
-            </div>
-            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-subtle hover:bg-surface">
-              <EllipsisVertical className="h-4 w-4" />
-            </button>
-          </>
-        )}
+      <div className={`p-3 ${collapsed ? "flex justify-center" : ""}`}>
+        <ProfileMenu collapsed={collapsed} />
       </div>
     </aside>
   );
