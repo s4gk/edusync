@@ -369,14 +369,14 @@ export default function CalificacionesPage() {
             {/* tabla */}
             <div className="overflow-x-auto">
               <div className="min-w-max">
-                <div className="flex items-stretch gap-2 border-b border-line bg-surface px-5 py-2.5">
-                  <span className="flex w-[190px] shrink-0 items-center text-[10px] font-bold tracking-[0.1em] text-subtle">ESTUDIANTE</span>
+                <div className="flex items-stretch border-b border-line bg-surface text-[10px] font-bold tracking-[0.1em] text-subtle">
+                  <span className="flex w-[200px] shrink-0 items-center border-r border-line px-5 py-3">ESTUDIANTE</span>
                   {activeEvals.map((e) => (
-                    <div key={e.id} className="group flex w-[108px] shrink-0 items-center gap-1">
+                    <div key={e.id} className="group flex w-[112px] shrink-0 items-center justify-center gap-1 border-r border-line px-2 py-3">
                       <input
                         value={e.name}
                         onChange={(ev) => updateEval(e.id, ev.target.value)}
-                        className="w-full truncate bg-transparent text-[11px] font-bold text-ink outline-none focus:rounded focus:bg-card focus:px-1"
+                        className="w-full truncate bg-transparent text-center text-[11px] font-bold text-ink outline-none focus:rounded focus:bg-card"
                         title="Nombre de la nota"
                       />
                       <button
@@ -388,17 +388,19 @@ export default function CalificacionesPage() {
                       </button>
                     </div>
                   ))}
-                  <button
-                    onClick={addEval}
-                    title={`Agregar nota a ${activeMeta.label}`}
-                    className="flex w-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-line text-subtle transition-colors hover:border-primary hover:text-primary"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                  <span className="flex w-[70px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-subtle">
+                  <div className="flex w-11 shrink-0 items-center justify-center border-r border-line">
+                    <button
+                      onClick={addEval}
+                      title={`Agregar nota a ${activeMeta.label}`}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-dashed border-line text-subtle transition-colors hover:border-primary hover:text-primary"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <span className="flex w-[92px] shrink-0 items-center justify-center border-r border-line px-2 py-3 text-center">
                     PROM·{activeMeta.label.toUpperCase()}
                   </span>
-                  <span className="flex w-[60px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-ink">DEFINITIVA</span>
+                  <span className="flex w-[92px] shrink-0 items-center justify-center px-2 py-3 text-center text-ink">DEFINITIVA</span>
                 </div>
 
                 {students.map((s, i) => {
@@ -406,15 +408,15 @@ export default function CalificacionesPage() {
                   const def = definitiva(s.grades, evals);
                   const l = letra(def);
                   return (
-                    <div key={s.id} className={`flex items-center gap-2 px-5 py-2 ${i < students.length - 1 ? "border-b border-line" : ""}`}>
-                      <div className="flex w-[190px] shrink-0 items-center gap-2.5">
-                        <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>{s.initials}</span>
-                        <span className="text-[13px] font-semibold text-ink">{s.name}</span>
+                    <div key={s.id} className={`flex items-stretch ${i < students.length - 1 ? "border-b border-line" : ""}`}>
+                      <div className="flex w-[200px] shrink-0 items-center gap-2.5 border-r border-line px-5 py-2">
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>{s.initials}</span>
+                        <span className="truncate text-[13px] font-semibold text-ink">{s.name}</span>
                       </div>
                       {activeEvals.map((e) => {
                         const v = num(s.grades[e.id] ?? "");
                         return (
-                          <div key={e.id} className="flex w-[108px] shrink-0 justify-center">
+                          <div key={e.id} className="flex w-[112px] shrink-0 items-center justify-center border-r border-line py-2">
                             <div className={`rounded-md ${cellBg(v)}`}>
                               <input
                                 value={s.grades[e.id] ?? ""}
@@ -427,13 +429,13 @@ export default function CalificacionesPage() {
                           </div>
                         );
                       })}
-                      <span className="w-9 shrink-0" />
-                      <div className="flex w-[70px] shrink-0 justify-end">
+                      <div className="w-11 shrink-0 border-r border-line" />
+                      <div className="flex w-[92px] shrink-0 items-center justify-center border-r border-line py-2">
                         <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${pillClass(da)}`}>
                           {da === null ? "—" : da.toFixed(1)}
                         </span>
                       </div>
-                      <div className="flex w-[60px] shrink-0 items-center justify-end gap-1">
+                      <div className="flex w-[92px] shrink-0 items-center justify-center py-2">
                         <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${l.chip}`}>
                           {def === null ? "—" : def.toFixed(1)}
                         </span>
