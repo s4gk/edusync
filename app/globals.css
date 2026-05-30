@@ -58,16 +58,19 @@
   --line: #2b283d;
   --line-soft: #2b283d;
 
-  --primary-tint: #272350;
+  --primary-tint: rgba(124, 109, 246, 0.2);
 
-  --s-success: #3b4748;
-  --s-success-fg: #a1e5a1;
-  --s-error: #53424f;
-  --s-error-fg: #ffbfb2;
-  --s-warning: #53484f;
-  --s-warning-fg: #ffd9b2;
-  --s-info: #404562;
-  --s-info-fg: #b2ccff;
+  /* chips de estado en oscuro: tintes translúcidos saturados — se ven
+     claramente como chip de color sobre el fondo oscuro y el texto
+     (fg) queda bien legible. */
+  --s-success: rgba(52, 211, 153, 0.17);
+  --s-success-fg: #6ee7b7;
+  --s-error: rgba(251, 113, 133, 0.17);
+  --s-error-fg: #fda4af;
+  --s-warning: rgba(251, 191, 36, 0.17);
+  --s-warning-fg: #fcd34d;
+  --s-info: rgba(96, 165, 250, 0.17);
+  --s-info-fg: #93c5fd;
 
   --chart-axis: #888799;
   --chart-grid: #2b283d;
@@ -87,4 +90,51 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ============================================================
+   Dark mode: los avatares/píldoras de iniciales usan tintes
+   pastel claros de Tailwind (bg-*-100 / text-*-700) que se ven
+   demasiado brillantes sobre el fondo oscuro. Aquí se remapean
+   a tintes translúcidos con texto claro, de forma global.
+   La especificidad (.dark .clase) gana sobre la utilidad simple.
+   ============================================================ */
+.dark .bg-blue-100 { background-color: rgba(59, 130, 246, 0.18); }
+.dark .bg-sky-100 { background-color: rgba(14, 165, 233, 0.18); }
+.dark .bg-cyan-100 { background-color: rgba(6, 182, 212, 0.18); }
+.dark .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.18); }
+.dark .bg-teal-100 { background-color: rgba(20, 184, 166, 0.18); }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.18); }
+.dark .bg-yellow-100 { background-color: rgba(234, 179, 8, 0.18); }
+.dark .bg-orange-100 { background-color: rgba(249, 115, 22, 0.18); }
+.dark .bg-red-100 { background-color: rgba(239, 68, 68, 0.18); }
+.dark .bg-rose-100 { background-color: rgba(244, 63, 94, 0.18); }
+.dark .bg-pink-100 { background-color: rgba(236, 72, 153, 0.18); }
+.dark .bg-violet-100 { background-color: rgba(139, 92, 246, 0.18); }
+.dark .bg-purple-100 { background-color: rgba(168, 85, 247, 0.18); }
+
+.dark .text-blue-700, .dark .text-blue-800 { color: #93c5fd; }
+.dark .text-sky-700, .dark .text-sky-800 { color: #7dd3fc; }
+.dark .text-cyan-700, .dark .text-cyan-800 { color: #67e8f9; }
+.dark .text-emerald-700, .dark .text-emerald-800 { color: #6ee7b7; }
+.dark .text-teal-700, .dark .text-teal-800 { color: #5eead4; }
+.dark .text-amber-700, .dark .text-amber-800 { color: #fcd34d; }
+.dark .text-yellow-700, .dark .text-yellow-800 { color: #fde047; }
+.dark .text-orange-700, .dark .text-orange-800 { color: #fdba74; }
+.dark .text-red-700, .dark .text-red-800 { color: #fca5a5; }
+.dark .text-rose-700, .dark .text-rose-800 { color: #fda4af; }
+.dark .text-pink-700, .dark .text-pink-800 { color: #f9a8d4; }
+.dark .text-violet-700, .dark .text-violet-800 { color: #c4b5fd; }
+.dark .text-purple-700, .dark .text-purple-800 { color: #d8b4fe; }
+
+/* barras suaves de sparklines (bg-*-200) */
+.dark .bg-blue-200 { background-color: rgba(59, 130, 246, 0.3); }
+.dark .bg-emerald-200 { background-color: rgba(16, 185, 129, 0.3); }
+.dark .bg-amber-200 { background-color: rgba(245, 158, 11, 0.3); }
+
+/* El morado de marca como TEXTO queda bajo de contraste sobre fondos
+   oscuros / tintes morados; se aclara solo en modo oscuro. El fondo
+   (bg-primary) de botones no cambia. */
+.dark .text-primary {
+  color: #a99cff;
 }
