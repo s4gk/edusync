@@ -17,6 +17,9 @@ import {
   BookOpen,
   Table2,
   PieChart,
+  Archive,
+  FolderClock,
+  ArrowRight,
   type LucideIcon,
 } from "lucide-react";
 import { useDismiss } from "@/components/use-dismiss";
@@ -34,11 +37,30 @@ const DIMS: { id: Dim; label: string; weight: number; icon: LucideIcon; accent: 
 /* ---------------- datos ---------------- */
 
 const FILTERS = [
-  { label: "Año: 2025" },
   { label: "Grado: 8°B" },
   { label: "Materia: Matemáticas", active: true },
   { label: "Periodo: P2" },
   { label: "Docente: C. Ríos" },
+];
+
+/* periodos cerrados de años anteriores (solo lectura) */
+const ARCHIVE: { year: string; periods: { p: string; cerrado: string; prom: string }[] }[] = [
+  {
+    year: "2024",
+    periods: [
+      { p: "Periodo 3", cerrado: "29 nov 2024", prom: "4.1" },
+      { p: "Periodo 2", cerrado: "12 ago 2024", prom: "3.9" },
+      { p: "Periodo 1", cerrado: "30 abr 2024", prom: "3.8" },
+    ],
+  },
+  {
+    year: "2023",
+    periods: [
+      { p: "Periodo 3", cerrado: "01 dic 2023", prom: "4.0" },
+      { p: "Periodo 2", cerrado: "15 ago 2023", prom: "3.7" },
+      { p: "Periodo 1", cerrado: "28 abr 2023", prom: "3.6" },
+    ],
+  },
 ];
 
 type Evaluation = { id: string; dim: Dim; name: string };
@@ -151,7 +173,7 @@ export default function CalificacionesPage() {
   const [evals, setEvals] = useState<Evaluation[]>(INITIAL_EVALS);
   const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
   const [activeDim, setActiveDim] = useState<Dim>("hacer");
-  const [tab, setTab] = useState<"libro" | "resumen">("libro");
+  const [tab, setTab] = useState<"libro" | "resumen" | "archivo">("libro");
   const [dimOpen, setDimOpen] = useState(false);
   const counter = useRef(0);
   const dimRef = useDismiss<HTMLDivElement>(dimOpen, () => setDimOpen(false));
@@ -197,9 +219,10 @@ export default function CalificacionesPage() {
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   };
 
-  const TABS: { id: "libro" | "resumen"; label: string; icon: LucideIcon }[] = [
+  const TABS: { id: "libro" | "resumen" | "archivo"; label: string; icon: LucideIcon }[] = [
     { id: "libro", label: "Libro de notas", icon: Table2 },
     { id: "resumen", label: "Resumen", icon: PieChart },
+    { id: "archivo", label: "Archivo", icon: Archive },
   ];
 
   return (
@@ -216,7 +239,10 @@ export default function CalificacionesPage() {
             <button className="flex h-9 items-center gap-2 rounded-[10px] border border-line px-3.5 text-[13px] font-semibold text-ink transition-colors hover:bg-surface">
               <Upload className="h-3.5 w-3.5" /> Importar Excel
             </button>
-            <button className="flex h-9 items-center gap-2 rounded-[10px] border border-line px-3.5 text-[13px] font-semibold text-ink transition-colors hover:bg-surface">
+            <button
+              onClick={() => setTab("archivo")}
+              className="flex h-9 items-center gap-2 rounded-[10px] border border-line px-3.5 text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
+            >
               <History className="h-3.5 w-3.5" /> Histórico
             </button>
             <button className="flex h-9 items-center gap-2 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90">
@@ -542,6 +568,57 @@ export default function CalificacionesPage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ================= TAB: ARCHIVO ================= */}
+      {tab === "archivo" && (
+        <div className="flex flex-col gap-5">
+          {/* intro */}
+          <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-card text-primary">
+              <FolderClock className="h-5 w-5" />
+            </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold text-ink">Archivo de periodos</span>
+              <span className="text-xs text-subtle">
+                Libros cerrados de años anteriores · solo lectura. El periodo actual se edita en “Libro de notas”.
+              </span>
+            </div>
+          </div>
+
+          {/* por año */}
+          {ARCHIVE.map((group) => (
+            <div key={group.year} className="flex flex-col gap-2.5">
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-sm font-bold text-ink">{group.year}</span>
+                <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-subtle">
+                  {group.periods.length} periodos
+                </span>
+              </div>
+              {group.periods.map((p) => (
+                <div
+                  key={p.p}
+                  className="flex items-center gap-4 rounded-xl border border-line bg-card p-4 transition-colors hover:bg-surface/40"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-subtle">
+                    <Archive className="h-5 w-5" />
+                  </span>
+                  <div className="flex flex-1 flex-col">
+                    <span className="text-[13px] font-semibold text-ink">Matemáticas · 8°B — {p.p}</span>
+                    <span className="text-[11px] text-subtle">Cerrado el {p.cerrado} · 32 estudiantes</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] text-subtle">Definitiva grupo</span>
+                    <span className="text-sm font-bold text-ink">{p.prom}</span>
+                  </div>
+                  <button className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-line px-3 text-xs font-semibold text-ink transition-colors hover:bg-surface">
+                    Ver <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       )}
     </div>
