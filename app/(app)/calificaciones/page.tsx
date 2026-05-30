@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useRef, useState } from "react";
 import {
   Upload,
   History,
@@ -5,7 +8,8 @@ import {
   Check,
   ChevronDown,
   Maximize2,
-  RefreshCw,
+  Plus,
+  X,
   Sparkles,
   AlertTriangle,
 } from "lucide-react";
@@ -26,25 +30,14 @@ const VIEW_TABS = [
   { label: "Asistencia" },
 ];
 
-const EVALS = [
-  { code: "E1", sub: "Quiz · 20 ago", peso: "10%" },
-  { code: "E2", sub: "Taller · 28 ago", peso: "10%" },
-  { code: "E3", sub: "Parcial · 05 sep", peso: "20%" },
-  { code: "E4", sub: "Quiz · 12 sep", peso: "10%" },
-  { code: "E5", sub: "Proyecto · 22 sep", peso: "20%" },
-  { code: "E6", sub: "Examen · 02 oct", peso: "30%" },
-];
-
-type Letra = "S" | "A" | "Bs" | "Bj";
+type Evaluation = { id: string; name: string; date: string; peso: number };
 
 type Student = {
-  name: string;
   id: string;
+  name: string;
   initials: string;
-  avatar: string; // tailwind clases bg+text
-  grades: number[];
-  prom: number;
-  letra: Letra;
+  avatar: string;
+  grades: Record<string, string>; // evalId -> nota (texto)
 };
 
 const AVATARS = [
@@ -60,18 +53,38 @@ const AVATARS = [
   "bg-orange-100 text-orange-700",
 ];
 
-const STUDENTS: Student[] = [
-  { name: "Ana Castillo", id: "ID-1801", initials: "AC", avatar: AVATARS[0], grades: [4.0, 4.5, 4.8, 4.7, 4.9, 4.6], prom: 4.7, letra: "S" },
-  { name: "Bryan Méndez", id: "ID-1802", initials: "BM", avatar: AVATARS[1], grades: [3.8, 4.0, 3.7, 4.1, 3.9, 3.9], prom: 3.9, letra: "Bs" },
-  { name: "Carolina Ríos", id: "ID-1803", initials: "CR", avatar: AVATARS[2], grades: [4.8, 5.0, 4.9, 4.7, 5.0, 4.9], prom: 4.9, letra: "S" },
-  { name: "Daniel Ortiz", id: "ID-1804", initials: "DO", avatar: AVATARS[3], grades: [2.5, 3.4, 2.8, 3.2, 2.6, 2.4], prom: 2.8, letra: "Bj" },
-  { name: "Esteban Lozano", id: "ID-1805", initials: "EL", avatar: AVATARS[4], grades: [4.1, 4.0, 4.2, 4.6, 4.0, 4.2], prom: 4.2, letra: "A" },
-  { name: "Felipe Vargas", id: "ID-1806", initials: "FV", avatar: AVATARS[5], grades: [3.2, 3.5, 3.1, 3.4, 3.3, 3.3], prom: 3.3, letra: "Bs" },
-  { name: "Gabriela Franco", id: "ID-1807", initials: "GF", avatar: AVATARS[6], grades: [4.7, 4.5, 4.8, 4.0, 4.6, 4.7], prom: 4.6, letra: "S" },
-  { name: "Hugo Bermúdez", id: "ID-1808", initials: "HB", avatar: AVATARS[7], grades: [2.4, 2.6, 3.3, 2.5, 2.7, 2.6], prom: 2.7, letra: "Bj" },
-  { name: "Isabella Pérez", id: "ID-1809", initials: "IP", avatar: AVATARS[8], grades: [4.0, 4.2, 4.1, 3.9, 4.2, 4.1], prom: 4.1, letra: "A" },
-  { name: "Jaime Salcedo", id: "ID-1810", initials: "JS", avatar: AVATARS[9], grades: [3.3, 3.5, 3.4, 3.2, 3.6, 3.4], prom: 3.4, letra: "Bs" },
+const NAMES = [
+  "Ana Castillo", "Bryan Méndez", "Carolina Ríos", "Daniel Ortiz", "Esteban Lozano",
+  "Felipe Vargas", "Gabriela Franco", "Hugo Bermúdez", "Isabella Pérez", "Jaime Salcedo",
 ];
+
+// Sin plantilla por defecto: el docente arranca con las evaluaciones que ya
+// registró (acá 2 de ejemplo) y va agregando las que necesite.
+const INITIAL_EVALS: Evaluation[] = [
+  { id: "e1", name: "Quiz diagnóstico", date: "20 ago", peso: 30 },
+  { id: "e2", name: "Taller en clase", date: "28 ago", peso: 30 },
+];
+
+const INITIAL_GRADES: Record<string, [string, string]> = {
+  "Ana Castillo": ["4.5", "4.8"],
+  "Bryan Méndez": ["3.9", "4.0"],
+  "Carolina Ríos": ["4.9", "5.0"],
+  "Daniel Ortiz": ["2.8", "3.1"],
+  "Esteban Lozano": ["4.1", "4.2"],
+  "Felipe Vargas": ["3.4", "3.2"],
+  "Gabriela Franco": ["4.7", "4.5"],
+  "Hugo Bermúdez": ["2.6", "2.9"],
+  "Isabella Pérez": ["4.0", "4.2"],
+  "Jaime Salcedo": ["3.5", "3.3"],
+};
+
+const INITIAL_STUDENTS: Student[] = NAMES.map((name, i) => ({
+  id: `s${i}`,
+  name,
+  initials: name.split(" ").map((p) => p[0]).join("").slice(0, 2),
+  avatar: AVATARS[i % AVATARS.length],
+  grades: { e1: INITIAL_GRADES[name][0], e2: INITIAL_GRADES[name][1] },
+}));
 
 const DIST = [
   { label: "Superior", pct: 20, bar: "bg-emerald-400", chip: "bg-s-success text-s-success-fg" },
@@ -80,31 +93,80 @@ const DIST = [
   { label: "Bajo", pct: 21, bar: "bg-rose-300", chip: "bg-s-error text-s-error-fg" },
 ];
 
-const RIESGO = [
-  { name: "Daniel Ortiz", prom: "2.8", avatar: AVATARS[3] },
-  { name: "Hugo Bermúdez", prom: "2.7", avatar: AVATARS[7] },
-  { name: "Mariana Quintero", prom: "2.5", avatar: "bg-purple-100 text-purple-700" },
-  { name: "Santiago Nieto", prom: "2.4", avatar: "bg-cyan-100 text-cyan-700" },
-];
-
 /* ---------------- helpers ---------------- */
 
-function cellClass(v: number): string {
-  if (v >= 4.5) return "bg-s-success text-s-success-fg";
-  if (v < 3.0) return "bg-s-error text-s-error-fg";
-  return "text-ink";
+function num(v: string): number | null {
+  const n = parseFloat(v.replace(",", "."));
+  return isNaN(n) ? null : n;
 }
 
-const LETRA_CHIP: Record<Letra, string> = {
-  S: "bg-s-success text-s-success-fg",
-  A: "bg-primary-tint text-primary",
-  Bs: "bg-surface text-ink",
-  Bj: "bg-s-error text-s-error-fg",
-};
+function promedio(grades: Record<string, string>, evals: Evaluation[]): number | null {
+  let sum = 0;
+  let w = 0;
+  for (const e of evals) {
+    const v = num(grades[e.id] ?? "");
+    if (v !== null) {
+      sum += v * e.peso;
+      w += e.peso;
+    }
+  }
+  return w > 0 ? sum / w : null;
+}
+
+function letra(p: number | null): { txt: string; chip: string } {
+  if (p === null) return { txt: "—", chip: "bg-surface text-subtle" };
+  if (p >= 4.6) return { txt: "S", chip: "bg-s-success text-s-success-fg" };
+  if (p >= 4.0) return { txt: "A", chip: "bg-primary-tint text-primary" };
+  if (p >= 3.0) return { txt: "Bs", chip: "bg-surface text-ink" };
+  return { txt: "Bj", chip: "bg-s-error text-s-error-fg" };
+}
+
+function cellClass(v: number | null): string {
+  if (v === null) return "bg-transparent text-subtle placeholder:text-muted";
+  if (v >= 4.5) return "bg-s-success text-s-success-fg";
+  if (v < 3.0) return "bg-s-error text-s-error-fg";
+  return "bg-surface text-ink";
+}
 
 /* ---------------- página ---------------- */
 
 export default function CalificacionesPage() {
+  const [evals, setEvals] = useState<Evaluation[]>(INITIAL_EVALS);
+  const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
+  const counter = useRef(INITIAL_EVALS.length);
+
+  const setGrade = (studentId: string, evalId: string, value: string) => {
+    // permite vacío, números y un punto/coma decimal
+    if (value !== "" && !/^\d{0,1}([.,]\d{0,1})?$/.test(value)) return;
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, grades: { ...s.grades, [evalId]: value } } : s))
+    );
+  };
+
+  const addEval = () => {
+    counter.current += 1;
+    const id = `e${counter.current}`;
+    setEvals((prev) => [...prev, { id, name: `Evaluación ${prev.length + 1}`, date: "", peso: 10 }]);
+  };
+
+  const removeEval = (id: string) => setEvals((prev) => prev.filter((e) => e.id !== id));
+
+  const updateEval = (id: string, patch: Partial<Evaluation>) =>
+    setEvals((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+
+  const totalPeso = evals.reduce((a, e) => a + (e.peso || 0), 0);
+
+  const grupo = useMemo(() => {
+    const proms = students.map((s) => promedio(s.grades, evals)).filter((p): p is number => p !== null);
+    if (!proms.length) return null;
+    return proms.reduce((a, b) => a + b, 0) / proms.length;
+  }, [students, evals]);
+
+  const enRiesgo = students.filter((s) => {
+    const p = promedio(s.grades, evals);
+    return p !== null && p < 3.0;
+  }).length;
+
   return (
     <div className="flex flex-col gap-5 px-8 py-7">
       {/* ====== header ====== */}
@@ -143,9 +205,7 @@ export default function CalificacionesPage() {
             <button
               key={f.label}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                f.active
-                  ? "bg-primary-tint text-primary"
-                  : "border border-line text-ink hover:bg-surface"
+                f.active ? "bg-primary-tint text-primary" : "border border-line text-ink hover:bg-surface"
               }`}
             >
               {f.label}
@@ -177,72 +237,138 @@ export default function CalificacionesPage() {
         {/* libro */}
         <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-line bg-card">
           {/* toolbar */}
-          <div className="flex items-center justify-between border-b border-line px-5 py-3">
-            <span className="text-sm font-semibold text-ink">32 estudiantes · 6 evaluaciones</span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-subtle">Página 1 de 1</span>
-            </div>
-          </div>
-
-          {/* encabezado de columnas */}
-          <div className="flex items-center gap-2 border-b border-line bg-surface px-5 py-2.5">
-            <span className="flex-1 text-[10px] font-bold tracking-[0.1em] text-subtle">ESTUDIANTE</span>
-            {EVALS.map((e) => (
-              <div key={e.code} className="flex w-[68px] shrink-0 flex-col items-center">
-                <span className="text-[11px] font-bold text-ink">{e.code}</span>
-                <span className="text-[9px] text-subtle">{e.peso}</span>
-              </div>
-            ))}
-            <span className="w-[64px] shrink-0 text-right text-[10px] font-bold tracking-[0.1em] text-subtle">
-              PROMEDIO
+          <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+            <span className="text-sm font-semibold text-ink">
+              {students.length} estudiantes · {evals.length} {evals.length === 1 ? "evaluación" : "evaluaciones"}
             </span>
+            <div className="flex items-center gap-3">
+              <span className={`text-xs font-medium ${totalPeso === 100 ? "text-emerald-600" : "text-subtle"}`}>
+                Peso total: {totalPeso}%{totalPeso !== 100 && " (no suma 100)"}
+              </span>
+              <button
+                onClick={addEval}
+                className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Agregar evaluación
+              </button>
+            </div>
           </div>
 
-          {/* filas */}
-          {STUDENTS.map((s, i) => (
-            <div
-              key={s.id}
-              className={`flex items-center gap-2 px-5 py-2.5 transition-colors hover:bg-surface/50 ${
-                i < STUDENTS.length - 1 ? "border-b border-line" : ""
-              }`}
-            >
-              <div className="flex flex-1 items-center gap-2.5">
-                <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>
-                  {s.initials}
+          {/* tabla con scroll horizontal (por si hay muchas evaluaciones) */}
+          <div className="overflow-x-auto">
+            <div className="min-w-max">
+              {/* encabezado */}
+              <div className="flex items-stretch gap-2 border-b border-line bg-surface px-5 py-2.5">
+                <span className="flex w-[200px] shrink-0 items-center text-[10px] font-bold tracking-[0.1em] text-subtle">
+                  ESTUDIANTE
                 </span>
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-semibold text-ink">{s.name}</span>
-                  <span className="text-[11px] text-subtle">{s.id}</span>
-                </div>
-              </div>
-              {s.grades.map((g, gi) => (
-                <div key={gi} className="flex w-[68px] shrink-0 justify-center">
-                  <span className={`flex h-7 w-10 items-center justify-center rounded-md text-[13px] font-semibold tabular-nums ${cellClass(g)}`}>
-                    {g.toFixed(1)}
-                  </span>
-                </div>
-              ))}
-              <div className="flex w-[64px] shrink-0 justify-end">
-                <span className={`flex items-center gap-1 rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${LETRA_CHIP[s.letra]}`}>
-                  {s.prom.toFixed(1)}
+                {evals.map((e) => (
+                  <div key={e.id} className="group flex w-[110px] shrink-0 flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <input
+                        value={e.name}
+                        onChange={(ev) => updateEval(e.id, { name: ev.target.value })}
+                        className="w-full truncate bg-transparent text-[11px] font-bold text-ink outline-none focus:rounded focus:bg-card focus:px-1"
+                        title="Nombre de la evaluación"
+                      />
+                      <button
+                        onClick={() => removeEval(e.id)}
+                        title="Quitar evaluación"
+                        className="ml-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted opacity-0 transition-opacity hover:bg-s-error hover:text-s-error-fg group-hover:opacity-100"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input
+                        value={String(e.peso)}
+                        onChange={(ev) => updateEval(e.id, { peso: Math.max(0, Math.min(100, parseInt(ev.target.value.replace(/\D/g, "")) || 0)) })}
+                        className="w-7 rounded bg-card px-1 text-center text-[10px] font-semibold text-subtle outline-none focus:ring-1 focus:ring-primary/40"
+                        title="Peso (%)"
+                      />
+                      <span className="text-[10px] text-muted">%</span>
+                    </div>
+                  </div>
+                ))}
+                {/* botón agregar columna */}
+                <button
+                  onClick={addEval}
+                  title="Agregar evaluación"
+                  className="flex w-10 shrink-0 items-center justify-center rounded-lg border border-dashed border-line text-subtle transition-colors hover:border-primary hover:text-primary"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                <span className="flex w-[64px] shrink-0 items-center justify-end text-right text-[10px] font-bold tracking-[0.1em] text-subtle">
+                  PROMEDIO
                 </span>
               </div>
+
+              {/* filas */}
+              {students.map((s, i) => {
+                const p = promedio(s.grades, evals);
+                const l = letra(p);
+                return (
+                  <div
+                    key={s.id}
+                    className={`flex items-center gap-2 px-5 py-2 ${
+                      i < students.length - 1 ? "border-b border-line" : ""
+                    }`}
+                  >
+                    <div className="flex w-[200px] shrink-0 items-center gap-2.5">
+                      <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>
+                        {s.initials}
+                      </span>
+                      <span className="text-[13px] font-semibold text-ink">{s.name}</span>
+                    </div>
+                    {evals.map((e) => {
+                      const v = num(s.grades[e.id] ?? "");
+                      return (
+                        <div key={e.id} className="flex w-[110px] shrink-0 justify-center">
+                          <input
+                            value={s.grades[e.id] ?? ""}
+                            onChange={(ev) => setGrade(s.id, e.id, ev.target.value)}
+                            inputMode="decimal"
+                            placeholder="–"
+                            className={`h-7 w-12 rounded-md text-center text-[13px] font-semibold tabular-nums outline-none transition-colors focus:ring-2 focus:ring-primary/40 ${cellClass(v)}`}
+                          />
+                        </div>
+                      );
+                    })}
+                    <span className="w-10 shrink-0" />
+                    <div className="flex w-[64px] shrink-0 items-center justify-end gap-1">
+                      <span className={`flex items-center justify-center rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${l.chip}`}>
+                        {p === null ? "—" : p.toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {evals.length === 0 && (
+                <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+                  <span className="text-sm font-semibold text-ink">Aún no hay evaluaciones</span>
+                  <span className="text-xs text-subtle">Agrega la primera evaluación del periodo para empezar a calificar.</span>
+                  <button onClick={addEval} className="mt-1 flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-white">
+                    <Plus className="h-3.5 w-3.5" /> Agregar evaluación
+                  </button>
+                </div>
+              )}
             </div>
-          ))}
+          </div>
 
           {/* footer */}
           <div className="flex items-center justify-between border-t border-line bg-surface px-5 py-3">
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-subtle">Promedio grupo: <span className="font-semibold text-ink">3.9</span></span>
+              <span className="text-subtle">
+                Promedio grupo: <span className="font-semibold text-ink">{grupo === null ? "—" : grupo.toFixed(1)}</span>
+              </span>
               <span className="text-subtle">·</span>
-              <span className="font-medium text-danger">4 estudiantes en riesgo</span>
+              <span className="font-medium text-danger">{enRiesgo} en riesgo</span>
               <span className="text-subtle">·</span>
-              <span className="text-subtle">12 ajustes sin guardar</span>
+              <span className="text-subtle">{evals.length} evaluaciones</span>
             </div>
-            <button className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface">
-              <RefreshCw className="h-3.5 w-3.5" />
-              Recalcular
-            </button>
+            <span className="text-[11px] text-subtle">Tip: clic en el nombre o el % de una columna para editarlo</span>
           </div>
         </div>
 
@@ -272,18 +398,22 @@ export default function CalificacionesPage() {
               <h3 className="text-sm font-semibold text-ink">Estudiantes en riesgo</h3>
               <span className="flex items-center gap-1 rounded-full bg-s-error px-1.5 py-0.5 text-[10px] font-bold text-s-error-fg">
                 <AlertTriangle className="h-2.5 w-2.5" />
-                4
+                {enRiesgo}
               </span>
             </div>
-            {RIESGO.map((r) => (
-              <div key={r.name} className="flex items-center gap-2.5">
-                <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${r.avatar}`}>
-                  {r.name.split(" ").map((p) => p[0]).join("").slice(0, 2)}
-                </span>
-                <span className="flex-1 text-[13px] font-medium text-ink">{r.name}</span>
-                <span className="text-[12px] font-bold text-danger">Promedio {r.prom}</span>
-              </div>
-            ))}
+            {students
+              .map((s) => ({ s, p: promedio(s.grades, evals) }))
+              .filter((x) => x.p !== null && x.p < 3.0)
+              .map(({ s, p }) => (
+                <div key={s.id} className="flex items-center gap-2.5">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${s.avatar}`}>
+                    {s.initials}
+                  </span>
+                  <span className="flex-1 text-[13px] font-medium text-ink">{s.name}</span>
+                  <span className="text-[12px] font-bold text-danger">Promedio {p!.toFixed(1)}</span>
+                </div>
+              ))}
+            {enRiesgo === 0 && <span className="text-xs text-subtle">Ningún estudiante por debajo de 3.0 🎉</span>}
           </div>
 
           {/* AI card */}
