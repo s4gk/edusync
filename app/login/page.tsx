@@ -278,6 +278,15 @@ export default function LoginPage() {
               Iniciar sesión
               <ArrowRight className="h-[15px] w-[15px]" />
             </button>
+
+            {/* acceso rápido de docente: entra directo a su clase actual */}
+            <button
+              type="button"
+              onClick={() => router.push("/clase")}
+              className="flex h-11 items-center justify-center gap-2 rounded-[10px] border border-line text-[13px] font-semibold text-ink transition-colors hover:bg-surface"
+            >
+              Entrar como docente
+            </button>
           </form>
         </div>
 

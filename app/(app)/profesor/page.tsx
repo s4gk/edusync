@@ -137,7 +137,7 @@ export default function ProfesorPage() {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Link href="/asistencia" className="flex items-center justify-center gap-2 rounded-[10px] bg-white px-4 py-2.5 text-[13px] font-bold text-primary transition-opacity hover:opacity-90">
+              <Link href="/clase" className="flex items-center justify-center gap-2 rounded-[10px] bg-white px-4 py-2.5 text-[13px] font-bold text-primary transition-opacity hover:opacity-90">
                 <CalendarCheck className="h-3.5 w-3.5" /> Tomar asistencia
               </Link>
               <Link href="/calificaciones" className="flex items-center justify-center gap-2 rounded-[10px] border border-white/40 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/10">
@@ -202,7 +202,7 @@ export default function ProfesorPage() {
                 </div>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${sChip.cls}`}>{sChip.label}</span>
                 <div className="flex items-center gap-1.5">
-                  <Link href="/asistencia" className="flex h-8 items-center gap-1.5 rounded-lg border border-line px-2.5 text-[11px] font-semibold text-ink transition-colors hover:bg-surface">
+                  <Link href="/clase" className="flex h-8 items-center gap-1.5 rounded-lg border border-line px-2.5 text-[11px] font-semibold text-ink transition-colors hover:bg-surface">
                     <CalendarCheck className="h-3.5 w-3.5" /> Asistencia
                   </Link>
                   <Link href="/calificaciones" className="flex h-8 items-center gap-1.5 rounded-lg border border-line px-2.5 text-[11px] font-semibold text-ink transition-colors hover:bg-surface">

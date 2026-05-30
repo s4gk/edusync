@@ -113,3 +113,34 @@ export function blockStatus(block: Block, now: Date, isToday: boolean): "done" |
   if (m >= timeToMin(block.start)) return "current";
   return "upcoming";
 }
+
+/* ---------- roster por curso (mock determinista) ---------- */
+
+const NAME_POOL = [
+  "Ana Castillo", "Bryan Méndez", "Carolina Ríos", "Daniel Ortiz", "Esteban Lozano",
+  "Felipe Vargas", "Gabriela Franco", "Hugo Bermúdez", "Isabella Pérez", "Jaime Salcedo",
+  "Karen Duarte", "Luis Pardo", "Mariana Gómez", "Nicolás Rojas", "Olga Suárez",
+  "Pablo Restrepo", "Quintín Ávila", "Renata Silva", "Samuel Acosta", "Tatiana Mora",
+  "Uriel Cano", "Valeria Cruz", "Wilmer Díaz", "Ximena León", "Yeison Parra",
+  "Zoe Ramírez", "Andrés Patiño", "Brenda Soto", "Camilo Vega", "Diana Castaño",
+  "Emilio Torres", "Fernanda Gil", "Gustavo Niño", "Helena Quintero", "Iván Bravo",
+  "Julieta Ramos", "Kevin Hoyos", "Lucía Mejía", "Mateo Vélez", "Natalia Ospina",
+];
+
+const initialsOf = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
+
+export type RosterStudent = { id: string; name: string; initials: string };
+
+/** Lista de estudiantes de un curso (determinista por id → estable). */
+export function rosterFor(courseId: string): RosterStudent[] {
+  let h = 0;
+  for (const ch of courseId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const start = h % NAME_POOL.length;
+  const n = 26 + (h % 7); // 26–32 estudiantes
+  const out: RosterStudent[] = [];
+  for (let i = 0; i < n; i++) {
+    const name = NAME_POOL[(start + i) % NAME_POOL.length];
+    out.push({ id: `${courseId}-${i}`, name, initials: initialsOf(name) });
+  }
+  return out;
+}
