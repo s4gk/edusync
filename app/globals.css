@@ -58,18 +58,19 @@
   --line: #2b283d;
   --line-soft: #2b283d;
 
-  --primary-tint: #2b2658;
+  --primary-tint: rgba(124, 109, 246, 0.2);
 
-  /* chips de estado en oscuro: tintes claramente verde/rojo/ámbar/azul
-     con buen contraste (los del diseño quedaban demasiado apagados). */
-  --s-success: #1f3d30;
-  --s-success-fg: #7ee9b0;
-  --s-error: #4a2a31;
-  --s-error-fg: #ffa9a9;
-  --s-warning: #463821;
+  /* chips de estado en oscuro: tintes translúcidos saturados — se ven
+     claramente como chip de color sobre el fondo oscuro y el texto
+     (fg) queda bien legible. */
+  --s-success: rgba(52, 211, 153, 0.17);
+  --s-success-fg: #6ee7b7;
+  --s-error: rgba(251, 113, 133, 0.17);
+  --s-error-fg: #fda4af;
+  --s-warning: rgba(251, 191, 36, 0.17);
   --s-warning-fg: #fcd34d;
-  --s-info: #233253;
-  --s-info-fg: #9ec5ff;
+  --s-info: rgba(96, 165, 250, 0.17);
+  --s-info-fg: #93c5fd;
 
   --chart-axis: #888799;
   --chart-grid: #2b283d;
