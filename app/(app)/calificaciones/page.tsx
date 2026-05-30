@@ -19,6 +19,7 @@ import {
   PieChart,
   type LucideIcon,
 } from "lucide-react";
+import { useDismiss } from "@/components/use-dismiss";
 
 /* ---------------- dimensiones ---------------- */
 
@@ -151,10 +152,13 @@ export default function CalificacionesPage() {
   const [students, setStudents] = useState<Student[]>(INITIAL_STUDENTS);
   const [activeDim, setActiveDim] = useState<Dim>("hacer");
   const [tab, setTab] = useState<"libro" | "resumen">("libro");
+  const [dimOpen, setDimOpen] = useState(false);
   const counter = useRef(0);
+  const dimRef = useDismiss<HTMLDivElement>(dimOpen, () => setDimOpen(false));
 
   const activeEvals = evals.filter((e) => e.dim === activeDim);
   const activeMeta = DIMS.find((d) => d.id === activeDim)!;
+  const ActiveIcon = activeMeta.icon;
 
   const setGrade = (studentId: string, evalId: string, value: string) => {
     if (value !== "" && !/^\d{0,1}([.,]\d{0,1})?$/.test(value)) return;
@@ -265,6 +269,54 @@ export default function CalificacionesPage() {
                   <ChevronDown className="h-3 w-3 opacity-70" />
                 </button>
               ))}
+
+              <span className="mx-0.5 h-5 w-px bg-line" />
+
+              {/* selector de sección Ser / Hacer / Saber */}
+              <div className="relative" ref={dimRef}>
+                <button
+                  onClick={() => setDimOpen((o) => !o)}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary-tint px-3 py-1.5 text-xs font-semibold text-primary transition-opacity hover:opacity-90"
+                >
+                  <ActiveIcon className="h-3.5 w-3.5" />
+                  Sección: {activeMeta.label}
+                  <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-white">
+                    {Math.round(activeMeta.weight * 100)}%
+                  </span>
+                  <ChevronDown className={`h-3 w-3 transition-transform ${dimOpen ? "rotate-180" : ""}`} />
+                </button>
+                {dimOpen && (
+                  <div className="absolute left-0 top-10 z-30 flex w-60 flex-col rounded-xl border border-line bg-card p-1.5 shadow-2xl">
+                    <span className="px-2.5 py-1.5 text-[10px] font-bold tracking-wide text-subtle">SECCIÓN A CALIFICAR</span>
+                    {DIMS.map((d) => {
+                      const Icon = d.icon;
+                      const count = evals.filter((e) => e.dim === d.id).length;
+                      const on = activeDim === d.id;
+                      return (
+                        <button
+                          key={d.id}
+                          onClick={() => {
+                            setActiveDim(d.id);
+                            setDimOpen(false);
+                          }}
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                            on ? "bg-surface" : "hover:bg-surface/60"
+                          }`}
+                        >
+                          <Icon className={`h-4 w-4 ${d.accent}`} />
+                          <span className="flex flex-1 flex-col">
+                            <span className="text-[13px] font-semibold text-ink">{d.label}</span>
+                            <span className="text-[10px] text-subtle">
+                              {count} {count === 1 ? "nota" : "notas"} · pesa {Math.round(d.weight * 100)}%
+                            </span>
+                          </span>
+                          {on && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <button className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line text-ink transition-colors hover:bg-surface">
               <Maximize2 className="h-3.5 w-3.5" />
@@ -273,44 +325,19 @@ export default function CalificacionesPage() {
 
           {/* libro */}
           <div className="flex flex-col overflow-hidden rounded-2xl border border-line bg-card">
-            {/* tabs de dimensión */}
-            <div className="flex flex-col gap-3 border-b border-line p-4">
-              <div className="flex items-center gap-2">
-                {DIMS.map((d) => {
-                  const Icon = d.icon;
-                  const count = evals.filter((e) => e.dim === d.id).length;
-                  const on = activeDim === d.id;
-                  return (
-                    <button
-                      key={d.id}
-                      onClick={() => setActiveDim(d.id)}
-                      className={`flex flex-1 items-center justify-center gap-2.5 rounded-xl border px-4 py-3 transition-colors ${
-                        on ? "border-primary bg-primary-tint" : "border-line bg-card hover:bg-surface"
-                      }`}
-                    >
-                      <Icon className={`h-5 w-5 ${on ? "text-primary" : d.accent}`} />
-                      <div className="flex flex-col items-start">
-                        <span className={`text-sm font-bold ${on ? "text-primary" : "text-ink"}`}>{d.label}</span>
-                        <span className="text-[11px] text-subtle">{count} {count === 1 ? "nota" : "notas"}</span>
-                      </div>
-                      <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${on ? "bg-primary text-white" : "bg-surface text-subtle"}`}>
-                        {Math.round(d.weight * 100)}%
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-subtle">
-                  Editando <span className="font-semibold text-ink">{activeMeta.label}</span> · las notas de esta sección promedian y pesan {Math.round(activeMeta.weight * 100)}% en la definitiva
-                </span>
-                <button
-                  onClick={addEval}
-                  className="flex h-8 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Agregar nota a {activeMeta.label}
-                </button>
-              </div>
+            {/* contexto de la sección activa */}
+            <div className="flex items-center justify-between gap-3 border-b border-line p-4">
+              <span className="flex items-center gap-2 text-xs text-subtle">
+                <ActiveIcon className={`h-4 w-4 ${activeMeta.accent}`} />
+                Calificando <span className="font-semibold text-ink">{activeMeta.label}</span> · {activeEvals.length}{" "}
+                {activeEvals.length === 1 ? "nota" : "notas"} · pesa {Math.round(activeMeta.weight * 100)}% en la definitiva
+              </span>
+              <button
+                onClick={addEval}
+                className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                <Plus className="h-3.5 w-3.5" /> Agregar nota a {activeMeta.label}
+              </button>
             </div>
 
             {/* tabla */}
