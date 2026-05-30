@@ -18,6 +18,7 @@ import {
   EllipsisVertical,
   type LucideIcon,
 } from "lucide-react";
+import { useSidebar } from "@/components/sidebar-context";
 
 type NavItem = {
   label: string;
@@ -58,8 +59,27 @@ const GROUPS: NavGroup[] = [
   },
 ];
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+function NavLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
   const Icon = item.icon;
+
+  if (collapsed) {
+    return (
+      <Link
+        href={item.href}
+        title={item.label}
+        className={`relative flex h-10 w-10 items-center justify-center rounded-[10px] transition-colors ${
+          active ? "bg-surface" : "hover:bg-surface/60"
+        }`}
+      >
+        {active && <span className="absolute left-0 h-5 w-[3px] rounded-sm bg-primary" />}
+        <Icon className={`h-[18px] w-[18px] ${active ? "text-primary" : "text-muted"}`} />
+        {item.badge && (
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary ring-2 ring-card" />
+        )}
+      </Link>
+    );
+  }
+
   return (
     <Link
       href={item.href}
@@ -92,75 +112,100 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { collapsed } = useSidebar();
   const isActive = (href: string) =>
     pathname === href || (href === "/dashboard" && pathname === "/");
 
-  // Todos los grupos abiertos por defecto; se pueden colapsar.
+  // Todos los grupos abiertos por defecto; se pueden colapsar (solo en modo expandido).
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(GROUPS.map((g) => [g.title, true]))
   );
   const toggle = (title: string) => setOpen((s) => ({ ...s, [title]: !s[title] }));
 
   return (
-    <aside className="flex w-[268px] shrink-0 flex-col border-r border-line-soft bg-card">
+    <aside
+      className={`flex shrink-0 flex-col border-r border-line-soft bg-card transition-[width] duration-200 ease-out ${
+        collapsed ? "w-[76px]" : "w-[268px]"
+      }`}
+    >
       {/* brand */}
-      <div className="flex items-center gap-3 px-5 pb-4 pt-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-primary text-base font-bold text-white">
+      <div className={`flex items-center gap-3 pb-4 pt-6 ${collapsed ? "justify-center px-0" : "px-5"}`}>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-primary text-base font-bold text-white">
           E
         </div>
-        <div className="flex flex-col">
-          <span className="text-[15px] font-bold leading-tight text-ink">Edusync</span>
-          <span className="text-[11px] font-medium text-subtle">Colegio San Mateo</span>
-        </div>
+        {!collapsed && (
+          <div className="flex flex-col overflow-hidden">
+            <span className="truncate text-[15px] font-bold leading-tight text-ink">Edusync</span>
+            <span className="truncate text-[11px] font-medium text-subtle">Colegio San Mateo</span>
+          </div>
+        )}
       </div>
 
       <div className="h-px bg-line-soft" />
 
       {/* nav */}
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-        <NavLink item={HOME} active={isActive(HOME.href)} />
+      <nav
+        className={`flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden ${
+          collapsed ? "items-center px-2.5 py-3" : "p-3"
+        }`}
+      >
+        <NavLink item={HOME} active={isActive(HOME.href)} collapsed={collapsed} />
 
-        {GROUPS.map((group) => {
-          const isOpen = open[group.title];
-          return (
-            <div key={group.title} className="mt-2 flex flex-col">
-              <button
-                type="button"
-                onClick={() => toggle(group.title)}
-                className="flex items-center justify-between px-2 py-2 text-[11px] font-bold tracking-wide text-subtle transition-colors hover:text-ink"
-                aria-expanded={isOpen}
-              >
-                {group.title}
-                <ChevronDown
-                  className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`}
-                />
-              </button>
-              {isOpen && (
-                <div className="flex flex-col gap-1">
-                  {group.items.map((item) => (
-                    <NavLink key={item.label} item={item} active={isActive(item.href)} />
-                  ))}
+        {collapsed
+          ? GROUPS.map((group) => (
+              <div key={group.title} className="flex w-full flex-col items-center gap-1">
+                <span className="my-1.5 h-px w-7 bg-line-soft" />
+                {group.items.map((item) => (
+                  <NavLink key={item.label} item={item} active={isActive(item.href)} collapsed />
+                ))}
+              </div>
+            ))
+          : GROUPS.map((group) => {
+              const isOpen = open[group.title];
+              return (
+                <div key={group.title} className="mt-2 flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => toggle(group.title)}
+                    className="flex items-center justify-between px-2 py-2 text-[11px] font-bold tracking-wide text-subtle transition-colors hover:text-ink"
+                    aria-expanded={isOpen}
+                  >
+                    {group.title}
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} />
+                  </button>
+                  {isOpen && (
+                    <div className="flex flex-col gap-1">
+                      {group.items.map((item) => (
+                        <NavLink key={item.label} item={item} active={isActive(item.href)} collapsed={false} />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
       </nav>
 
       <div className="h-px bg-line-soft" />
 
       {/* profile */}
-      <div className="flex items-center gap-2.5 p-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-line-soft bg-line-soft text-[13px] font-semibold text-ink">
+      <div className={`flex items-center gap-2.5 p-4 ${collapsed ? "justify-center" : ""}`}>
+        <button
+          title="María Rojas · Rectora"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line-soft bg-line-soft text-[13px] font-semibold text-ink transition-colors hover:bg-line"
+        >
           MR
-        </div>
-        <div className="flex flex-1 flex-col">
-          <span className="text-[13px] font-bold text-ink">María Rojas</span>
-          <span className="text-[11px] font-medium text-subtle">Rectora</span>
-        </div>
-        <button className="flex h-7 w-7 items-center justify-center rounded-lg text-subtle hover:bg-surface">
-          <EllipsisVertical className="h-4 w-4" />
         </button>
+        {!collapsed && (
+          <>
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <span className="truncate text-[13px] font-bold text-ink">María Rojas</span>
+              <span className="truncate text-[11px] font-medium text-subtle">Rectora</span>
+            </div>
+            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-subtle hover:bg-surface">
+              <EllipsisVertical className="h-4 w-4" />
+            </button>
+          </>
+        )}
       </div>
     </aside>
   );

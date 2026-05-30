@@ -1,18 +1,22 @@
 "use client";
 
-import { PanelLeftClose, ChevronRight, Search, ChevronDown, Bell } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, ChevronRight, Search, ChevronDown, Bell } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useSidebar } from "@/components/sidebar-context";
 
 export function Topbar() {
+  const { collapsed, toggle } = useSidebar();
   return (
     <header className="flex h-[68px] shrink-0 items-center gap-4 border-b border-line bg-card px-6">
       {/* left: collapse + breadcrumbs */}
       <div className="flex items-center gap-2.5">
         <button
-          aria-label="Contraer menú"
+          onClick={toggle}
+          aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
+          title={collapsed ? "Expandir menú" : "Contraer menú"}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink transition-colors hover:bg-line-soft"
         >
-          <PanelLeftClose className="h-4 w-4" />
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
         <span className="h-6 w-px bg-line" />
         <nav className="flex items-center gap-1.5 text-sm">
