@@ -59,9 +59,6 @@ export default function HorariosPage() {
       t.name.toLowerCase().includes(query.toLowerCase()) ||
       t.materia.toLowerCase().includes(query.toLowerCase())
   );
-  const completos = TEACHERS.filter((t) => hoursFor(t.id) === 30).length;
-  const totalHoras = TEACHERS.reduce((a, t) => a + hoursFor(t.id), 0);
-
   /* ---------------- VISTA LISTA (tabla de docentes) ---------------- */
   if (view === "list") {
     return (
@@ -74,20 +71,6 @@ export default function HorariosPage() {
               Todos los docentes y su área. Abre uno para asignar sus 6 horas diarias (L–V, 6:30 a.m.–12:30 p.m.).
             </p>
           </div>
-        </div>
-
-        {/* resumen */}
-        <div className="flex flex-wrap gap-3">
-          {[
-            { label: "Docentes", value: String(TEACHERS.length) },
-            { label: "Horarios completos", value: `${completos}/${TEACHERS.length}`, tone: completos === TEACHERS.length ? "text-emerald-600" : "text-ink" },
-            { label: "Horas asignadas", value: `${totalHoras}/${TEACHERS.length * 30}` },
-          ].map((k) => (
-            <div key={k.label} className="flex min-w-[150px] flex-col gap-1 rounded-xl border border-line bg-card px-4 py-2.5">
-              <span className="text-[11px] font-medium text-subtle">{k.label}</span>
-              <span className={`text-xl font-bold leading-none ${k.tone ?? "text-ink"}`}>{k.value}</span>
-            </div>
-          ))}
         </div>
 
         {/* buscador */}
