@@ -160,13 +160,6 @@ function cellText(v: number | null): string {
   return "text-ink";
 }
 
-function pillClass(v: number | null): string {
-  if (v === null) return "bg-surface text-subtle";
-  if (v >= 4.5) return "bg-s-success text-s-success-fg";
-  if (v < 3.0) return "bg-s-error text-s-error-fg";
-  return "bg-s-info text-s-info-fg";
-}
-
 /* ---------------- página ---------------- */
 
 export default function CalificacionesPage() {
@@ -397,14 +390,10 @@ export default function CalificacionesPage() {
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
-                  <span className="flex w-[92px] shrink-0 items-center justify-center border-r border-line px-2 py-3 text-center">
-                    PROM·{activeMeta.label.toUpperCase()}
-                  </span>
-                  <span className="flex w-[92px] shrink-0 items-center justify-center px-2 py-3 text-center text-ink">DEFINITIVA</span>
+                  <span className="flex w-[100px] shrink-0 items-center justify-center px-2 py-3 text-center text-ink">PROMEDIO</span>
                 </div>
 
                 {students.map((s, i) => {
-                  const da = dimAvg(s.grades, evals, activeDim);
                   const def = definitiva(s.grades, evals);
                   const l = letra(def);
                   return (
@@ -430,12 +419,7 @@ export default function CalificacionesPage() {
                         );
                       })}
                       <div className="w-11 shrink-0 border-r border-line" />
-                      <div className="flex w-[92px] shrink-0 items-center justify-center border-r border-line py-2">
-                        <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${pillClass(da)}`}>
-                          {da === null ? "—" : da.toFixed(1)}
-                        </span>
-                      </div>
-                      <div className="flex w-[92px] shrink-0 items-center justify-center py-2">
+                      <div className="flex w-[100px] shrink-0 items-center justify-center py-2">
                         <span className={`rounded-full px-2 py-1 text-[12px] font-bold tabular-nums ${l.chip}`}>
                           {def === null ? "—" : def.toFixed(1)}
                         </span>
