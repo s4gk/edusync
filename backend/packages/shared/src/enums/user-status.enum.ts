@@ -1,0 +1,6 @@
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  RETIRED = 'RETIRED',
+  GRADUATED = 'GRADUATED',
+}
