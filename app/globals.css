@@ -36,6 +36,19 @@
   --s-info: #c9d6f0;
   --s-info-fg: #001133;
 
+  /* paleta de datos (donut, barras, leyendas) — tokens para poder
+     calmar la saturación en oscuro sin tocar cada componente */
+  --c-brand: #5749f4;
+  --c-green: #22c55e;
+  --c-amber: #f59e0b;
+  --c-red: #ef4444;
+  --c-income-1: #5749f4; /* matrículas */
+  --c-income-2: #003300; /* pensiones */
+  --c-income-3: #4d2700; /* otros */
+
+  /* gradiente de las tarjetas hero (banners morados) */
+  --grad-primary: linear-gradient(135deg, #5749f4 0%, #7c5bff 100%);
+
   /* gráficas (Recharts) */
   --chart-axis: #616167;
   --chart-grid: #c5c5cb;
@@ -47,41 +60,71 @@
 .dark {
   color-scheme: dark;
 
-  --bg: #131124;
-  --card: #1a182e;
-  --surface: #2b283d;
+  /* Escalera de superficies NEUTRA (gris carbón apenas frío). Antes tenían
+     un tinte morado marcado; ahora son grises limpios para que el morado de
+     marca destaque solo en acentos. Cada nivel (bg → card → surface) sube en
+     luminancia para dar profundidad. */
+  --bg: #0e0e11;
+  --card: #16161a;
+  --surface: #232328;
 
-  --ink: #e8e8ea;
-  --subtle: #888799;
-  --muted: #acabb2;
+  /* Jerarquía de texto en oscuro, ordenada por prominencia
+     (ink > subtle > muted). El secundario (--subtle, 295 usos) se mantiene
+     legible y el terciario (--muted) cede protagonismo; ambos en gris neutro. */
+  --ink: #ededee;
+  --subtle: #a0a0aa;
+  --muted: #747480;
 
-  --line: #2b283d;
-  --line-soft: #2b283d;
+  /* En oscuro un borde necesita ser MÁS claro que la superficie para
+     leerse; --line dibuja el contorno y --line-soft es separador interno tenue. */
+  --line: #313138;
+  --line-soft: #232328;
 
   --primary-tint: rgba(124, 109, 246, 0.2);
 
-  /* chips de estado en oscuro: tintes translúcidos saturados — se ven
-     claramente como chip de color sobre el fondo oscuro y el texto
-     (fg) queda bien legible. */
-  --s-success: rgba(52, 211, 153, 0.17);
-  --s-success-fg: #6ee7b7;
-  --s-error: rgba(251, 113, 133, 0.17);
-  --s-error-fg: #fda4af;
-  --s-warning: rgba(251, 191, 36, 0.17);
-  --s-warning-fg: #fcd34d;
-  --s-info: rgba(96, 165, 250, 0.17);
-  --s-info-fg: #93c5fd;
+  /* chips de estado en oscuro: tinte translúcido un poco más presente y
+     texto con color definido — que el rojo lea como ROJO y el amarillo como
+     ÁMBAR (antes salían salmón lavado y café). Vivos pero sin neón. */
+  --s-success: rgba(72, 212, 142, 0.26);
+  --s-success-fg: #63e0a3;
+  --s-error: rgba(255, 110, 95, 0.26);
+  --s-error-fg: #ff8c7f;
+  --s-warning: rgba(255, 198, 82, 0.26);
+  --s-warning-fg: #ffd36e;
+  --s-info: rgba(128, 182, 252, 0.26);
+  --s-info-fg: #9fccff;
 
-  --chart-axis: #888799;
-  --chart-grid: #2b283d;
-  --chart-baseline: #403f51;
-  --chart-tooltip-bg: #1a182e;
-  --chart-tooltip-border: #2b283d;
+  /* datos: claros y luminosos sobre el gris. */
+  --c-brand: #7d6fff;
+  --c-green: #5ad495;
+  --c-amber: #ffc857;
+  --c-red: #ff7d70;
+  --c-income-1: #7d6fff;
+  --c-income-2: #50b87a; /* antes #003300 → invisible en oscuro */
+  --c-income-3: #e0a94e; /* antes #4d2700 → invisible en oscuro */
+
+  /* hero atenuado: morado más profundo y menos brillante sobre el gris. */
+  --grad-primary: linear-gradient(135deg, #4a3ec4 0%, #5d4ad6 100%);
+
+  --chart-axis: #8a8a94;
+  --chart-grid: #2a2a30;
+  --chart-baseline: #3a3a42;
+  --chart-tooltip-bg: #16161a;
+  --chart-tooltip-border: #313138;
 }
 
 html,
 body {
   height: 100%;
+}
+
+/* Oculta la barra de scroll manteniendo el scroll funcional (sidebar). */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE / Edge antiguo */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome / Safari / Edge */
 }
 
 body {
@@ -90,6 +133,57 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Texto seleccionado: el celeste por defecto del navegador choca con la
+   marca. Se tiñe con el morado primario en ambos temas. */
+::selection {
+  background-color: rgba(87, 73, 244, 0.28);
+}
+
+/* ============================================================
+   Elevación en oscuro
+   Las sombras de Tailwind están calibradas para fondos claros
+   (negro a baja opacidad), así que sobre el fondo oscuro se vuelven
+   invisibles y los paneles flotantes (menús, popovers, modales) se
+   funden con la página. Aquí se reescriben con sombras más profundas
+   y un borde superior de luz sutil para que "floten" de verdad.
+   ============================================================ */
+.dark .shadow-2xl {
+  box-shadow:
+    0 16px 40px -12px rgba(0, 0, 0, 0.7),
+    0 4px 12px -4px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* La sombra suave de las tarjetas es casi nula en claro y nula en oscuro;
+   aquí se le da una elevación tenue para despegarlas del fondo. */
+.dark .shadow-card {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Scrollbars temáticas (WebKit/Chromium): la barra clara del navegador
+   resalta demasiado sobre el fondo oscuro. No afecta a .no-scrollbar. */
+.dark *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.dark *::-webkit-scrollbar-thumb {
+  background-color: var(--line);
+  border: 2px solid var(--bg);
+  border-radius: 9999px;
+}
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted);
+}
+.dark *::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+/* Reafirma .no-scrollbar en oscuro: la regla universal de arriba tiene la
+   misma especificidad y va después, así que sin esto reaparecería la barra
+   en contenedores que la ocultan (p. ej. el sidebar). */
+.dark .no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* ============================================================

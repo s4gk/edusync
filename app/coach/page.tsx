@@ -1,73 +1,35 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import {
-  ChevronDown,
-  Plus,
-  Search,
-  Users,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  Check,
-  ArrowUpRight,
-  Activity,
-  BookOpen,
-  Paperclip,
-  ArrowUp,
-  X,
-  type LucideIcon,
+  Plus, ShieldCheck, Sparkles, ArrowUp, X, Loader2, TriangleAlert, BookOpen, Activity, type LucideIcon,
 } from "lucide-react";
+import { apiGet, apiPost, ApiError } from "@/lib/api";
+import { useAuth } from "@/components/auth-context";
 
-/* ---------------- datos ---------------- */
+/* ---------------- datos del backend ---------------- */
 
-const CONVOS: { group: string; items: { title: string; sub: string; active?: boolean }[] }[] = [
-  { group: "HOY", items: [{ title: "Periodo 2 de Camila", sub: "hace 5 min", active: true }] },
-  { group: "ESTA SEMANA", items: [
-    { title: "Plan de refuerzo en Tecnología", sub: "lun" },
-    { title: "Cómo leer el boletín", sub: "mar" },
-    { title: "Reunión con la profe Lozano", sub: "mié" },
-  ] },
-  { group: "ANTERIORES", items: [
-    { title: "Resultados Periodo 1", sub: "12 mar" },
-    { title: "Matrícula 2025", sub: "28 ene" },
-  ] },
+type Grade = { id: string; score: number | string; subject?: { name: string } };
+type Dash = {
+  type?: string;
+  student?: { id: string; gradeGroup?: { name?: string } };
+  currentPeriod?: string | null;
+  students?: { id: string; name: string; gradeGroup?: { name?: string }; isPrimary?: boolean }[];
+};
+
+type Msg = { role: "user" | "assistant"; content: string };
+
+const SUGGESTIONS = [
+  "Resume el desempeño del periodo",
+  "¿En qué materia necesita apoyo?",
+  "Dame hábitos de estudio para casa",
 ];
 
-const STATS = [
-  { label: "Promedio", value: "4.3", sub: "/ 5.0" },
-  { label: "Asistencia", value: "96,4%", sub: "47/49 d" },
-  { label: "Convivencia", value: "0 obs.", sub: "2 logros" },
-];
-
-const GROWTH = [
-  { name: "Matemáticas", delta: "+0,5", pct: 90 },
-  { name: "Ciencias Sociales", delta: "+0,3", pct: 75 },
-  { name: "Inglés", delta: "+0,2", pct: 55 },
-];
-
-const PLAN_STEPS = [
-  "Entregar los 2 talleres pendientes esta semana",
-  "Tutoría de 30 min los martes con el profe García",
-  "Mini-proyecto final para subir a nivel básico",
-];
-
-const SOURCES = [
-  { title: "Boletín Periodo 2", sub: "Verificado por el colegio" },
-  { title: "Notas del docente — 8 áreas", sub: "Actualizado hace 14 h" },
-  { title: "Registro de asistencia", sub: "47 / 49 días" },
-];
-
-const SUGGESTIONS = ["¿Cómo apoyo en Tecnología?", "Redacta mensaje al profe", "Compara con Periodo 1"];
-
-const CHAT: { from: "user" | "ai"; text: string; card?: "stats" | "growth" | "plan" }[] = [
-  { from: "user", text: "¿Cómo le fue a Camila este periodo?" },
-  { from: "ai", text: "¡Hola Carolina! Camila cerró un Periodo 2 muy sólido. Subió su promedio, mantuvo casi perfecta su asistencia y recibió 2 reconocimientos. Aquí van los números clave:", card: "stats" },
-  { from: "ai", text: "Resumen en una línea: cerraste con todas las luces verdes 🟢. ¿Quieres que profundice en algún punto?" },
-  { from: "user", text: "¿En qué mejoró más?" },
-  { from: "ai", text: "Subió en 6 de 8 materias respecto al Periodo 1. Las tres mejoras más notables:", card: "growth" },
-  { from: "ai", text: "Mi observación: el salto en Matemáticas es notable. Cambió un patrón de varios periodos donde se quedaba en 3,8–4,0. ¿Te muestro qué actividades cree el profesor que ayudaron?" },
-  { from: "user", text: "¿Y en qué materia necesita apoyo?" },
-  { from: "ai", text: "Una sola materia se quedó por debajo: Tecnología e Informática. El profesor Felipe García ya construyó un plan acordado con el director de grupo. Te dejo la versión resumida:", card: "plan" },
-  { from: "ai", text: "Si quieres, te genero un mensaje listo para enviarle al profesor confirmando que apoyarás los 3 pasos. ¿Lo redactamos?" },
-];
+const GREETING: Msg = {
+  role: "assistant",
+  content:
+    "¡Hola! Soy el Coach de Edusync. Puedo ayudarte a entender el desempeño del periodo y darte ideas para acompañar en casa. ¿Qué quieres saber?",
+};
 
 function Side({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: React.ReactNode }) {
   return (
@@ -78,9 +40,112 @@ function Side({ icon: Icon, title, children }: { icon: LucideIcon; title: string
   );
 }
 
-/* ---------------- página ---------------- */
-
 export default function CoachPage() {
+  const { user } = useAuth();
+  const [studentName, setStudentName] = useState("");
+  const [studentGrade, setStudentGrade] = useState("");
+  const [studentAvg, setStudentAvg] = useState<number | null>(null);
+  const [context, setContext] = useState<string | undefined>(undefined);
+
+  const [messages, setMessages] = useState<Msg[]>([GREETING]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [notConfigured, setNotConfigured] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Arma el contexto real del estudiante (propio o hijo del acudiente) para
+  // aterrizar al coach en datos verificados. Para staff queda sin contexto.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const dash = await apiGet<Dash>("/dashboard");
+        let studentId = "";
+        let name = "";
+        let grade = "";
+        if (dash.type === "student" && dash.student) {
+          studentId = dash.student.id;
+          name = user ? `${user.firstName} ${user.lastName}`.trim() : "";
+          grade = dash.student.gradeGroup?.name ?? "";
+        } else if (dash.type === "guardian" && dash.students?.length) {
+          const child = dash.students.find((s) => s.isPrimary) ?? dash.students[0];
+          studentId = child.id;
+          name = child.name;
+          grade = child.gradeGroup?.name ?? "";
+        }
+        if (!studentId || !alive) return;
+
+        const grades = await apiGet<Grade[]>(`/grades?studentId=${studentId}`);
+        const bySubject = new Map<string, { sum: number; n: number }>();
+        for (const g of grades) {
+          const subj = g.subject?.name ?? "—";
+          const s = Number(g.score);
+          if (!Number.isFinite(s)) continue;
+          const e = bySubject.get(subj) ?? { sum: 0, n: 0 };
+          e.sum += s; e.n += 1;
+          bySubject.set(subj, e);
+        }
+        const perSubject = [...bySubject.entries()].map(([n, { sum, n: c }]) => ({ name: n, avg: sum / c }));
+        const avg = perSubject.length ? perSubject.reduce((a, b) => a + b.avg, 0) / perSubject.length : null;
+        if (!alive) return;
+        setStudentName(name);
+        setStudentGrade(grade);
+        setStudentAvg(avg);
+        if (perSubject.length) {
+          const lista = perSubject.map((p) => `${p.name}: ${p.avg.toFixed(1)}`).join(", ");
+          setContext(
+            [
+              `Estudiante: ${name || "(sin nombre)"}${grade ? ` (${grade})` : ""}.`,
+              dash.currentPeriod ? `Periodo actual: ${dash.currentPeriod}.` : "",
+              avg != null ? `Promedio general: ${avg.toFixed(1)} sobre 5.0.` : "",
+              `Notas por materia (sobre 5.0): ${lista}.`,
+            ].filter(Boolean).join(" "),
+          );
+        }
+      } catch {
+        /* coach funciona igual sin contexto */
+      }
+    })();
+    return () => { alive = false; };
+  }, [user]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, sending]);
+
+  async function send(text: string) {
+    const content = text.trim();
+    if (!content || sending) return;
+    const next = [...messages, { role: "user" as const, content }];
+    setMessages(next);
+    setInput("");
+    setSending(true);
+    setNotConfigured(null);
+    try {
+      // Solo enviamos los turnos reales (sin el saludo local) al backend.
+      const payload = next.filter((m) => m !== GREETING);
+      const res = await apiPost<{ reply: string }>("/coach/chat", { messages: payload, context });
+      setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 503) {
+        setNotConfigured(err.message);
+      } else {
+        const msg = err instanceof ApiError ? err.message : "No se pudo conectar con el Coach.";
+        setMessages((m) => [...m, { role: "assistant", content: `⚠️ ${msg}` }]);
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function reset() {
+    setMessages([GREETING]);
+    setNotConfigured(null);
+  }
+
+  const initials = (studentName || (user ? `${user.firstName} ${user.lastName}` : "") || "??")
+    .split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+
   return (
     <div className="flex h-screen flex-col bg-card">
       {/* top utility bar */}
@@ -90,149 +155,106 @@ export default function CoachPage() {
           <span className="text-[13px] font-bold text-ink">Edusync Coach</span>
           <span className="rounded-full bg-primary-tint px-2 py-0.5 text-[10px] font-bold text-primary">IA familiar</span>
         </div>
-        <button className="flex h-8 w-8 items-center justify-center rounded-lg text-subtle hover:bg-surface"><X className="h-4 w-4" /></button>
+        <a href="/dashboard" className="flex h-8 w-8 items-center justify-center rounded-lg text-subtle hover:bg-surface"><X className="h-4 w-4" /></a>
       </header>
 
       <div className="flex min-h-0 flex-1">
         {/* ===== left rail ===== */}
         <aside className="hidden w-72 shrink-0 flex-col border-r border-line bg-card lg:flex">
           <div className="flex flex-col gap-3 border-b border-line p-4">
-            <button className="flex items-center justify-between gap-2 rounded-xl bg-surface px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-surface px-3 py-2.5">
               <span className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-700 text-[11px] font-bold text-white">CR</span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">{initials}</span>
                 <span className="flex flex-col items-start">
-                  <span className="text-[13px] font-semibold text-ink">Camila Restrepo</span>
-                  <span className="text-[11px] text-subtle">8°B · Acudida</span>
+                  <span className="text-[13px] font-semibold text-ink">{studentName || "Estudiante"}</span>
+                  <span className="text-[11px] text-subtle">{studentGrade || "—"}</span>
                 </span>
               </span>
-              <ChevronDown className="h-3.5 w-3.5 text-muted" />
-            </button>
-            <button className="flex items-center justify-center gap-2 rounded-[10px] bg-primary py-2.5 text-xs font-bold text-white">
+            </div>
+            <button onClick={reset} className="flex items-center justify-center gap-2 rounded-[10px] bg-primary py-2.5 text-xs font-bold text-white">
               <Plus className="h-3.5 w-3.5" /> Nueva conversación
             </button>
-            <div className="flex h-9 items-center gap-2 rounded-[10px] bg-surface px-3">
-              <Search className="h-3.5 w-3.5 text-muted" />
-              <span className="text-xs text-muted">Buscar en mis conversaciones</span>
-            </div>
           </div>
-          <div className="flex flex-1 flex-col overflow-y-auto py-3">
-            {CONVOS.map((g) => (
-              <div key={g.group} className="flex flex-col">
-                <span className="px-5 py-1 text-[10px] font-bold tracking-[0.18em] text-muted">{g.group}</span>
-                {g.items.map((it) => (
-                  <button key={it.title} className={`flex flex-col gap-0.5 px-5 py-2.5 text-left ${it.active ? "border-l-[3px] border-primary bg-surface" : "hover:bg-surface/60"}`}>
-                    <span className="text-[13px] font-semibold text-ink">{it.title}</span>
-                    <span className="text-[11px] text-subtle">{it.sub}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-col gap-2 border-t border-line px-5 py-3">
-            <span className="flex items-center gap-2 text-xs font-semibold text-subtle"><Users className="h-3.5 w-3.5" /> Mis 2 acudidos</span>
-            <span className="flex items-center gap-2 text-xs font-medium text-subtle"><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Privacidad y datos</span>
+          <div className="flex flex-1 flex-col gap-2 px-5 py-4 text-[11px] leading-relaxed text-subtle">
+            <span className="flex items-center gap-2 font-semibold text-ink"><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Privacidad</span>
+            <p>El coach solo usa los datos académicos del colegio para responder. No compartas información sensible en el chat.</p>
           </div>
         </aside>
 
         {/* ===== chat column ===== */}
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="flex flex-col gap-3 border-b border-line px-8 py-5">
+          <div className="flex flex-col gap-2 border-b border-line px-8 py-5">
             <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.16em] text-primary"><Sparkles className="h-3 w-3" /> CONVERSACIÓN CON EL COACH</span>
-            <h1 className="text-2xl font-bold -tracking-[0.01em] text-ink">Hablemos del periodo 2 de Camila</h1>
-            <div className="flex flex-wrap gap-1.5">
-              {["Periodo 2", "8 materias", "Asistencia", "Convivencia", "Plan de mejora"].map((c) => (
-                <span key={c} className="rounded-full border border-line px-2.5 py-1 text-[11px] font-medium text-subtle">{c}</span>
-              ))}
-            </div>
+            <h1 className="text-2xl font-bold -tracking-[0.01em] text-ink">
+              {studentName ? `Hablemos del desempeño de ${studentName.split(" ")[0]}` : "Tu asistente académico"}
+            </h1>
           </div>
 
-          <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-7 sm:px-12">
-            {CHAT.map((m, i) =>
-              m.from === "user" ? (
+          <div ref={scrollRef} className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 py-7 sm:px-12">
+            {notConfigured && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-s-warning-fg/30 bg-s-warning px-4 py-3 text-[13px] text-s-warning-fg">
+                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{notConfigured}</span>
+              </div>
+            )}
+            {messages.map((m, i) =>
+              m.role === "user" ? (
                 <div key={i} className="flex justify-end">
-                  <span className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-white">{m.text}</span>
+                  <span className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-white">{m.content}</span>
                 </div>
               ) : (
                 <div key={i} className="flex max-w-[88%] gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">E</span>
-                  <div className="flex flex-1 flex-col gap-3">
-                    <p className="text-sm leading-relaxed text-ink">{m.text}</p>
-                    {m.card === "stats" && (
-                      <div className="flex gap-2.5">
-                        {STATS.map((s) => (
-                          <div key={s.label} className="flex flex-1 flex-col gap-1 rounded-xl border border-line bg-card p-3">
-                            <span className="text-[10px] font-bold tracking-wide text-subtle">{s.label}</span>
-                            <span className="text-xl font-bold text-ink">{s.value}</span>
-                            <span className="text-[10px] text-subtle">{s.sub}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {m.card === "growth" && (
-                      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
-                        <span className="flex items-center gap-1.5 text-[11px] font-bold text-ink"><TrendingUp className="h-3.5 w-3.5 text-emerald-600" /> Top 3 mejoras vs Periodo 1</span>
-                        {GROWTH.map((g) => (
-                          <div key={g.name} className="flex items-center gap-3">
-                            <span className="w-36 shrink-0 text-xs text-ink">{g.name}</span>
-                            <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface">
-                              <span className="block h-full rounded-full bg-emerald-400" style={{ width: `${g.pct}%` }} />
-                            </span>
-                            <span className="w-10 text-right text-xs font-bold text-emerald-600">{g.delta}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {m.card === "plan" && (
-                      <div className="overflow-hidden rounded-2xl border border-line bg-card">
-                        <div className="flex items-center justify-between gap-2 border-b border-line bg-surface px-4 py-3">
-                          <span className="text-[13px] font-bold text-ink">Plan · Tecnología e Informática</span>
-                          <span className="rounded-full bg-s-error px-2 py-0.5 text-[10px] font-bold text-s-error-fg">3.0</span>
-                        </div>
-                        <div className="flex flex-col gap-2.5 p-4">
-                          {PLAN_STEPS.map((s, si) => (
-                            <div key={si} className="flex items-start gap-2.5">
-                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-tint text-[10px] font-bold text-primary">{si + 1}</span>
-                              <span className="text-[13px] text-ink">{s}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex items-center justify-between gap-2 border-t border-line bg-surface px-4 py-2.5">
-                          <span className="text-[11px] text-subtle">Acordado con el director de grupo</span>
-                          <button className="flex items-center gap-1 text-[11px] font-semibold text-primary">Ver plan completo <ArrowUpRight className="h-3 w-3" /></button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <p className="flex-1 whitespace-pre-wrap pt-1 text-sm leading-relaxed text-ink">{m.content}</p>
                 </div>
-              )
+              ),
             )}
-            {/* typing */}
-            <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">E</span>
-              <span className="flex items-center gap-2 rounded-2xl bg-surface px-4 py-3">
-                <span className="flex gap-1">
-                  {[0, 1, 2].map((d) => <span key={d} className="h-1.5 w-1.5 rounded-full bg-muted" />)}
+            {sending && (
+              <div className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-white">E</span>
+                <span className="flex items-center gap-2 rounded-2xl bg-surface px-4 py-3">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-subtle" />
+                  <span className="text-xs font-medium text-subtle">Edusync Coach está pensando…</span>
                 </span>
-                <span className="text-xs font-medium text-subtle">Edusync Coach está pensando…</span>
-              </span>
-            </div>
+              </div>
+            )}
           </div>
 
           {/* composer */}
           <div className="flex flex-col gap-3 border-t border-line px-4 py-4 sm:px-12">
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
-                <button key={s} className="rounded-full border border-line bg-card px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface">{s}</button>
+                <button
+                  key={s}
+                  onClick={() => send(s)}
+                  disabled={sending}
+                  className="rounded-full border border-line bg-card px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-surface disabled:opacity-50"
+                >
+                  {s}
+                </button>
               ))}
             </div>
-            <div className="flex items-center gap-2 rounded-2xl border-[1.5px] border-line bg-card px-4 py-2.5">
-              <button className="text-subtle hover:text-ink"><Paperclip className="h-4 w-4" /></button>
-              <input placeholder="Escribe tu pregunta sobre Camila…" className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted" />
-              <button className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white"><ArrowUp className="h-4 w-4" /></button>
-            </div>
+            <form
+              onSubmit={(e) => { e.preventDefault(); send(input); }}
+              className="flex items-center gap-2 rounded-2xl border-[1.5px] border-line bg-card px-4 py-2.5 focus-within:border-primary"
+            >
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Escribe tu pregunta…"
+                className="flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted"
+              />
+              <button
+                type="submit"
+                disabled={sending || !input.trim()}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white transition-opacity disabled:opacity-40"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            </form>
             <p className="flex items-center justify-center gap-1.5 text-center text-[11px] leading-relaxed text-subtle">
               <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-600" />
-              Las respuestas se generan con datos verificados por el colegio. Edusync Coach puede equivocarse; consulta siempre al docente para decisiones importantes.
+              El Coach puede equivocarse; consulta siempre al docente para decisiones importantes.
             </p>
           </div>
         </main>
@@ -241,41 +263,27 @@ export default function CoachPage() {
         <aside className="hidden w-[340px] shrink-0 flex-col overflow-y-auto border-l border-line bg-card xl:flex">
           <div className="flex flex-col gap-2 border-b border-line px-5 py-4">
             <span className="text-xs font-bold text-ink">Contexto en vivo</span>
-            <p className="text-[11px] leading-relaxed text-subtle">Esto es lo que el coach está consultando para responderte. Toca cualquier fuente para inspeccionarla.</p>
+            <p className="text-[11px] leading-relaxed text-subtle">Datos del colegio que el coach usa para responderte.</p>
           </div>
           <Side icon={Activity} title="Estudiante">
-            <div className="flex items-center gap-3 rounded-xl bg-surface p-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-700 text-sm font-bold text-white">CR</span>
-              <div className="flex flex-col">
-                <span className="text-[13px] font-semibold text-ink">Camila Restrepo Henao</span>
-                <span className="text-[11px] text-subtle">8°B · Promedio 4.3 · Puesto 6/32</span>
-              </div>
-            </div>
-          </Side>
-          <Side icon={Check} title="Fuentes consultadas">
-            <div className="flex flex-col gap-2">
-              {SOURCES.map((s) => (
-                <div key={s.title} className="flex items-center gap-2.5 rounded-[10px] bg-surface p-2.5">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-card text-emerald-600"><Check className="h-3.5 w-3.5" /></span>
-                  <div className="flex flex-1 flex-col">
-                    <span className="text-[12px] font-semibold text-ink">{s.title}</span>
-                    <span className="text-[10px] text-subtle">{s.sub}</span>
-                  </div>
+            {studentName ? (
+              <div className="flex items-center gap-3 rounded-xl bg-surface p-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">{initials}</span>
+                <div className="flex flex-col">
+                  <span className="text-[13px] font-semibold text-ink">{studentName}</span>
+                  <span className="text-[11px] text-subtle">
+                    {studentGrade || "—"}{studentAvg != null ? ` · Promedio ${studentAvg.toFixed(1)}` : ""}
+                  </span>
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-subtle">Inicia sesión como estudiante o acudiente para ver el contexto del estudiante.</p>
+            )}
           </Side>
-          <Side icon={BookOpen} title="Lecturas recomendadas">
-            <div className="flex flex-col">
-              {["Cómo acompañar en casa sin presionar", "Hábitos de estudio que funcionan", "Hablar de notas con tu hijo"].map((t) => (
-                <button key={t} className="flex items-center gap-2.5 py-2 text-left">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface text-subtle"><BookOpen className="h-3.5 w-3.5" /></span>
-                  <span className="flex-1 text-[12px] font-medium text-ink">{t}</span>
-                  <ArrowUpRight className="h-3 w-3 text-subtle" />
-                </button>
-              ))}
-              <span className="mt-2 flex items-center gap-1.5 text-[10px] text-subtle"><ShieldCheck className="h-3 w-3 text-emerald-600" /> Tus datos están cifrados extremo a extremo</span>
-            </div>
+          <Side icon={BookOpen} title="Recomendaciones">
+            <p className="text-[11px] leading-relaxed text-subtle">
+              Pregunta por hábitos de estudio, cómo leer el boletín o cómo apoyar en una materia específica.
+            </p>
           </Side>
         </aside>
       </div>

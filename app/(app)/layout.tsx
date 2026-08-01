@@ -3,11 +3,13 @@ import { Topbar } from "@/components/topbar";
 import { SidebarProvider } from "@/components/sidebar-context";
 import { CommandMenuProvider } from "@/components/command-menu";
 import { ScheduleProvider } from "@/components/schedule-context";
+import { AuthGuard } from "@/components/auth-guard";
 
 export default function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
+    <AuthGuard>
     <SidebarProvider>
       <CommandMenuProvider>
         <ScheduleProvider>
@@ -21,5 +23,6 @@ export default function AppLayout({
         </ScheduleProvider>
       </CommandMenuProvider>
     </SidebarProvider>
+    </AuthGuard>
   );
 }
