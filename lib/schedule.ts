@@ -1,6 +1,7 @@
 /* ============================================================
-   Modelo del módulo de Horarios (mock, sin backend).
-   Jornada: lunes a viernes, 6 bloques de 1 h, 6:30–12:30.
+   Módulo de Horarios — ahora respaldado por el backend (/api/schedule).
+   Aquí quedan solo los helpers estáticos (bloques, días, tiempo, color).
+   Los datos (docentes, materias, slots) vienen de la API vía schedule-context.
    ============================================================ */
 
 export type Block = { id: number; label: string; start: string; end: string };
@@ -25,62 +26,49 @@ export const DAYS: Day[] = [
   { idx: 5, label: "Viernes", short: "Vie" },
 ];
 
-export type Course = { id: string; materia: string; grado: string; aula: string; color: string };
+/* ---------- tipos de la API ---------- */
 
-export const COURSES: Course[] = [
-  { id: "m6a", materia: "Matemáticas", grado: "6°A", aula: "204", color: "#6366F1" },
-  { id: "m7b", materia: "Matemáticas", grado: "7°B", aula: "204", color: "#6366F1" },
-  { id: "m8b", materia: "Matemáticas", grado: "8°B", aula: "204", color: "#6366F1" },
-  { id: "m9a", materia: "Matemáticas", grado: "9°A", aula: "205", color: "#6366F1" },
-  { id: "m10c", materia: "Matemáticas", grado: "10°C", aula: "205", color: "#6366F1" },
-  { id: "m11a", materia: "Matemáticas", grado: "11°A", aula: "206", color: "#6366F1" },
-  { id: "geo8", materia: "Geometría", grado: "8°B", aula: "204", color: "#8B5CF6" },
-  { id: "est10", materia: "Estadística", grado: "10°C", aula: "205", color: "#0EA5E9" },
-  { id: "soc8", materia: "Ciencias Sociales", grado: "8°B", aula: "102", color: "#F59E0B" },
-  { id: "len7", materia: "Lengua Castellana", grado: "7°B", aula: "110", color: "#EC4899" },
-  { id: "nat9", materia: "Ciencias Naturales", grado: "9°A", aula: "Lab 1", color: "#10B981" },
-  { id: "ing11", materia: "Inglés", grado: "11°A", aula: "108", color: "#14B8A6" },
-];
-
-export const courseById = (id: string | undefined) => COURSES.find((c) => c.id === id);
-
-export type Teacher = { id: string; name: string; materia: string; initials: string };
-
-export const TEACHERS: Teacher[] = [
-  { id: "t1", name: "Carlos Ríos", materia: "Matemáticas", initials: "CR" },
-  { id: "t2", name: "Ana Mejía", materia: "Ciencias Sociales", initials: "AM" },
-  { id: "t3", name: "Jorge Mendoza", materia: "Ciencias Naturales", initials: "JM" },
-  { id: "t4", name: "Laura Botero", materia: "Lengua Castellana", initials: "LB" },
-];
-
-/** Profesor "logueado" para la vista Mi día. */
-export const CURRENT_TEACHER_ID = "t1";
-
-/* ---------- claves del store: teacher|day|block ---------- */
-
-export type Assignments = Record<string, string>;
-export const slotKey = (teacherId: string, day: number, block: number) => `${teacherId}|${day}|${block}`;
-
-/** Horario semilla (lo que vería precargado, editable por la admin). */
-export function seedAssignments(): Assignments {
-  const a: Assignments = {};
-  const t1week: Record<number, string[]> = {
-    1: ["m6a", "m7b", "m8b", "geo8", "m9a", "m11a"],
-    2: ["m8b", "m9a", "m10c", "m6a", "m7b", "est10"],
-    3: ["m7b", "m8b", "geo8", "m11a", "m9a", "m6a"],
-    4: ["m9a", "m10c", "m11a", "m8b", "m6a", "m7b"],
-    5: ["m6a", "m8b", "m7b", "m9a", "est10", "m11a"],
+export type ApiSubject = { id: string; name: string; gradeGroupId: string; gradeGroup: { id: string; name: string; gradeLevel: number } };
+export type ApiTeacher = { id: string; userId: string; name: string; speciality: string; assignedHours: number; groups: string[]; subjects: ApiSubject[] };
+export type ApiSlot = {
+  id: string;
+  subjectId: string;
+  dayOfWeek: number;
+  block: number;
+  room: string | null;
+  subject: {
+    id: string; name: string; gradeGroupId: string;
+    gradeGroup: { id: string; name: string; gradeLevel: number };
+    teacher?: { user?: { firstName: string; lastName: string } };
   };
-  for (const day of DAYS) {
-    t1week[day.idx].forEach((courseId, i) => {
-      a[slotKey("t1", day.idx, BLOCKS[i].id)] = courseId;
-    });
-  }
-  // un par de bloques de ejemplo para otra profe
-  a[slotKey("t2", 1, 1)] = "soc8";
-  a[slotKey("t2", 1, 3)] = "soc8";
-  a[slotKey("t2", 2, 2)] = "soc8";
-  return a;
+};
+
+/** "Curso" derivado de un slot (lo que pinta la grilla). */
+export type Course = { slotId: string; subjectId: string; materia: string; grado: string; gradeGroupId: string; aula: string; color: string };
+
+const PALETTE = ["#6366F1", "#8B5CF6", "#0EA5E9", "#F59E0B", "#EC4899", "#10B981", "#14B8A6", "#EF4444", "#A855F7", "#3B82F6"];
+const NAMED: Record<string, string> = {
+  "Matemáticas": "#6366F1", "Lengua Castellana": "#EC4899", "Ciencias Naturales": "#10B981",
+  "Ciencias Sociales": "#F59E0B", "Inglés": "#14B8A6", "Educación Física": "#0EA5E9",
+  "Educación Artística": "#A855F7", "Tecnología e Informática": "#3B82F6",
+};
+export function colorFor(name: string): string {
+  if (NAMED[name]) return NAMED[name];
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+
+export function slotToCourse(slot: ApiSlot): Course {
+  return {
+    slotId: slot.id,
+    subjectId: slot.subjectId,
+    materia: slot.subject.name,
+    grado: slot.subject.gradeGroup.name,
+    gradeGroupId: slot.subject.gradeGroupId,
+    aula: slot.room ?? "—",
+    color: colorFor(slot.subject.name),
+  };
 }
 
 /* ---------- helpers de tiempo ---------- */
@@ -112,35 +100,4 @@ export function blockStatus(block: Block, now: Date, isToday: boolean): "done" |
   if (m >= timeToMin(block.end)) return "done";
   if (m >= timeToMin(block.start)) return "current";
   return "upcoming";
-}
-
-/* ---------- roster por curso (mock determinista) ---------- */
-
-const NAME_POOL = [
-  "Ana Castillo", "Bryan Méndez", "Carolina Ríos", "Daniel Ortiz", "Esteban Lozano",
-  "Felipe Vargas", "Gabriela Franco", "Hugo Bermúdez", "Isabella Pérez", "Jaime Salcedo",
-  "Karen Duarte", "Luis Pardo", "Mariana Gómez", "Nicolás Rojas", "Olga Suárez",
-  "Pablo Restrepo", "Quintín Ávila", "Renata Silva", "Samuel Acosta", "Tatiana Mora",
-  "Uriel Cano", "Valeria Cruz", "Wilmer Díaz", "Ximena León", "Yeison Parra",
-  "Zoe Ramírez", "Andrés Patiño", "Brenda Soto", "Camilo Vega", "Diana Castaño",
-  "Emilio Torres", "Fernanda Gil", "Gustavo Niño", "Helena Quintero", "Iván Bravo",
-  "Julieta Ramos", "Kevin Hoyos", "Lucía Mejía", "Mateo Vélez", "Natalia Ospina",
-];
-
-const initialsOf = (name: string) => name.split(" ").map((p) => p[0]).join("").slice(0, 2);
-
-export type RosterStudent = { id: string; name: string; initials: string };
-
-/** Lista de estudiantes de un curso (determinista por id → estable). */
-export function rosterFor(courseId: string): RosterStudent[] {
-  let h = 0;
-  for (const ch of courseId) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const start = h % NAME_POOL.length;
-  const n = 26 + (h % 7); // 26–32 estudiantes
-  const out: RosterStudent[] = [];
-  for (let i = 0; i < n; i++) {
-    const name = NAME_POOL[(start + i) % NAME_POOL.length];
-    out.push({ id: `${courseId}-${i}`, name, initials: initialsOf(name) });
-  }
-  return out;
 }

@@ -10,11 +10,16 @@ import {
   useCallback,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Search, CornerDownLeft } from "lucide-react";
+import { Search, CornerDownLeft, GraduationCap, type LucideIcon } from "lucide-react";
 import { ALL_ROUTES, type Route } from "@/lib/nav";
+import { apiGet } from "@/lib/api";
 
 const Ctx = createContext<{ open: () => void }>({ open: () => {} });
 export const useCommandMenu = () => useContext(Ctx);
+
+type Item =
+  | { kind: "route"; route: Route }
+  | { kind: "person"; id: string; name: string; group: string };
 
 function norm(s: string) {
   return s
@@ -28,6 +33,7 @@ export function CommandMenuProvider({ children }: { children: React.ReactNode })
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [people, setPeople] = useState<Item[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const close = useCallback(() => {
@@ -36,10 +42,24 @@ export function CommandMenuProvider({ children }: { children: React.ReactNode })
     setActive(0);
   }, []);
 
-  const results = useMemo(() => {
+  const routeItems = useMemo<Item[]>(() => {
     const q = norm(query.trim());
-    if (!q) return ALL_ROUTES;
-    return ALL_ROUTES.filter((r) => norm(`${r.label} ${r.group} ${r.keywords ?? ""}`).includes(q));
+    const list = !q ? ALL_ROUTES : ALL_ROUTES.filter((r) => norm(`${r.label} ${r.group} ${r.keywords ?? ""}`).includes(q));
+    return list.map((route) => ({ kind: "route", route }));
+  }, [query]);
+  const results = useMemo<Item[]>(() => [...routeItems, ...people], [routeItems, people]);
+
+  // Búsqueda de personas (estudiantes) con debounce → salta a su ficha.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) { setPeople([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await apiGet<{ data: { id: string; user: { firstName: string; lastName: string }; gradeGroup?: { name?: string } }[] }>(`/students?search=${encodeURIComponent(q)}&limit=6`);
+        setPeople((r.data ?? []).map((s) => ({ kind: "person", id: s.id, name: `${s.user.firstName} ${s.user.lastName}`, group: s.gradeGroup?.name ?? "Estudiante" })));
+      } catch { setPeople([]); }
+    }, 250);
+    return () => clearTimeout(t);
   }, [query]);
 
   // Atajo global ⌘K / Ctrl+K
@@ -65,9 +85,9 @@ export function CommandMenuProvider({ children }: { children: React.ReactNode })
   }, [open]);
 
   const go = useCallback(
-    (r: Route) => {
+    (item: Item) => {
       close();
-      router.push(r.href);
+      router.push(item.kind === "route" ? item.route.href : `/estudiantes/${item.id}`);
     },
     [close, router]
   );
@@ -127,12 +147,15 @@ export function CommandMenuProvider({ children }: { children: React.ReactNode })
                   Sin resultados para “{query}”.
                 </div>
               ) : (
-                results.map((r, i) => {
-                  const Icon = r.icon;
+                results.map((item, i) => {
+                  const Icon: LucideIcon = item.kind === "route" ? item.route.icon : GraduationCap;
+                  const label = item.kind === "route" ? item.route.label : item.name;
+                  const group = item.kind === "route" ? item.route.group : `${item.group} · estudiante`;
+                  const key = item.kind === "route" ? item.route.href : `p-${item.id}`;
                   return (
                     <button
-                      key={r.href}
-                      onClick={() => go(r)}
+                      key={key}
+                      onClick={() => go(item)}
                       onMouseMove={() => setActive(i)}
                       className={`flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors ${
                         i === active ? "bg-surface" : ""
@@ -146,8 +169,8 @@ export function CommandMenuProvider({ children }: { children: React.ReactNode })
                         <Icon className="h-4 w-4" />
                       </span>
                       <span className="flex flex-1 flex-col">
-                        <span className="text-[13px] font-semibold text-ink">{r.label}</span>
-                        <span className="text-[11px] text-subtle">{r.group}</span>
+                        <span className="text-[13px] font-semibold text-ink">{label}</span>
+                        <span className="text-[11px] text-subtle">{group}</span>
                       </span>
                       {i === active && <CornerDownLeft className="h-3.5 w-3.5 text-muted" />}
                     </button>

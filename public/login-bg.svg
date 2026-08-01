@@ -1,0 +1,46 @@
+<svg width="800" height="1200" viewBox="0 0 800 1200" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="base" x1="0" y1="0" x2="800" y2="1200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1A0E5C"/>
+      <stop offset="0.55" stop-color="#5749F4"/>
+      <stop offset="1" stop-color="#7C5BFF"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#9C8BFF" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#9C8BFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowC" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#2B1A8A" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#2B1A8A" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="38" height="38" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#FFFFFF" fill-opacity="0.06"/>
+    </pattern>
+  </defs>
+
+  <!-- base -->
+  <rect width="800" height="1200" fill="url(#base)"/>
+
+  <!-- textura de puntos -->
+  <rect width="800" height="1200" fill="url(#dots)"/>
+
+  <!-- glows suaves -->
+  <circle cx="660" cy="140" r="320" fill="url(#glowB)"/>
+  <circle cx="120" cy="980" r="380" fill="url(#glowA)"/>
+  <circle cx="760" cy="760" r="300" fill="url(#glowC)"/>
+
+  <!-- arcos geométricos finos -->
+  <g stroke="#FFFFFF" stroke-opacity="0.10" fill="none">
+    <circle cx="120" cy="980" r="200"/>
+    <circle cx="120" cy="980" r="300"/>
+    <circle cx="120" cy="980" r="400"/>
+  </g>
+
+  <!-- formas flotantes -->
+  <rect x="540" y="430" width="150" height="150" rx="36" fill="#FFFFFF" fill-opacity="0.05" transform="rotate(18 615 505)"/>
+  <rect x="120" y="320" width="96" height="96" rx="24" fill="#FFFFFF" fill-opacity="0.06" transform="rotate(-12 168 368)"/>
+</svg>

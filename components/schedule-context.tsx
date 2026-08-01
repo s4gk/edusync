@@ -1,73 +1,100 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { type Assignments, seedAssignments, slotKey, courseById } from "@/lib/schedule";
-
-const STORAGE_KEY = "edusync-horarios";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { apiGet, apiPost, apiDelete, ApiError } from "@/lib/api";
+import { slotToCourse, type ApiTeacher, type ApiSlot, type Course } from "@/lib/schedule";
 
 type Ctx = {
-  assignments: Assignments;
-  assign: (teacherId: string, day: number, block: number, courseId: string | null) => void;
-  courseFor: (teacherId: string, day: number, block: number) => ReturnType<typeof courseById>;
-  reset: () => void;
+  teachers: ApiTeacher[];
+  loadingTeachers: boolean;
+  currentTeacherId: string;
+  setCurrentTeacherId: (id: string) => void;
+  /** Carga (y cachea) los slots de un docente. */
+  loadTeacher: (teacherId: string) => Promise<void>;
+  /** Curso en una celda (requiere haber llamado loadTeacher antes). */
+  courseFor: (teacherId: string, day: number, block: number) => Course | undefined;
+  /** Asigna una materia a una celda. Devuelve mensaje de error si hay cruce. */
+  assign: (teacherId: string, subjectId: string, day: number, block: number, room?: string) => Promise<string | null>;
+  /** Quita un slot por id. */
+  removeSlot: (teacherId: string, slotId: string) => Promise<void>;
+  refreshTeachers: () => Promise<void>;
 };
 
 const ScheduleCtx = createContext<Ctx>({
-  assignments: {},
-  assign: () => {},
-  courseFor: () => undefined,
-  reset: () => {},
+  teachers: [], loadingTeachers: true, currentTeacherId: "", setCurrentTeacherId: () => {},
+  loadTeacher: async () => {}, courseFor: () => undefined, assign: async () => null, removeSlot: async () => {}, refreshTeachers: async () => {},
 });
 
 export function ScheduleProvider({ children }: { children: React.ReactNode }) {
-  const [assignments, setAssignments] = useState<Assignments>(() => seedAssignments());
+  const [teachers, setTeachers] = useState<ApiTeacher[]>([]);
+  const [loadingTeachers, setLoadingTeachers] = useState(true);
+  const [currentTeacherId, setCurrentTeacherId] = useState("");
+  const [slotsByTeacher, setSlotsByTeacher] = useState<Record<string, ApiSlot[]>>({});
+  const inflight = useRef<Set<string>>(new Set());
 
-  // Carga lo guardado al montar (evita mismatch de hidratación usando la semilla en el primer render).
-  useEffect(() => {
+  const refreshTeachers = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setAssignments(JSON.parse(raw));
+      const ts = await apiGet<ApiTeacher[]>("/schedule/teachers");
+      setTeachers(ts);
+      setCurrentTeacherId((prev) => prev || ts.find((t) => t.assignedHours > 0)?.id || ts[0]?.id || "");
     } catch {
-      // ignore
+      setTeachers([]);
+    } finally {
+      setLoadingTeachers(false);
     }
   }, []);
 
-  const persist = useCallback((next: Assignments) => {
-    setAssignments(next);
+  useEffect(() => { refreshTeachers(); }, [refreshTeachers]);
+
+  const loadTeacher = useCallback(async (teacherId: string) => {
+    if (!teacherId || inflight.current.has(teacherId)) return;
+    inflight.current.add(teacherId);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      const slots = await apiGet<ApiSlot[]>(`/schedule?teacherId=${teacherId}`);
+      setSlotsByTeacher((m) => ({ ...m, [teacherId]: slots }));
     } catch {
-      // ignore
+      setSlotsByTeacher((m) => ({ ...m, [teacherId]: [] }));
+    } finally {
+      inflight.current.delete(teacherId);
     }
   }, []);
-
-  const assign = useCallback(
-    (teacherId: string, day: number, block: number, courseId: string | null) => {
-      setAssignments((prev) => {
-        const next = { ...prev };
-        const k = slotKey(teacherId, day, block);
-        if (courseId) next[k] = courseId;
-        else delete next[k];
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch {
-          // ignore
-        }
-        return next;
-      });
-    },
-    []
-  );
 
   const courseFor = useCallback(
-    (teacherId: string, day: number, block: number) => courseById(assignments[slotKey(teacherId, day, block)]),
-    [assignments]
+    (teacherId: string, day: number, block: number): Course | undefined => {
+      const slot = (slotsByTeacher[teacherId] ?? []).find((s) => s.dayOfWeek === day && s.block === block);
+      return slot ? slotToCourse(slot) : undefined;
+    },
+    [slotsByTeacher],
   );
 
-  const reset = useCallback(() => persist(seedAssignments()), [persist]);
+  const reloadTeacher = useCallback(async (teacherId: string) => {
+    try {
+      const slots = await apiGet<ApiSlot[]>(`/schedule?teacherId=${teacherId}`);
+      setSlotsByTeacher((m) => ({ ...m, [teacherId]: slots }));
+    } catch { /* noop */ }
+  }, []);
+
+  const assign = useCallback(async (teacherId: string, subjectId: string, day: number, block: number, room?: string) => {
+    try {
+      await apiPost("/schedule", { subjectId, dayOfWeek: day, block, room });
+      await Promise.all([reloadTeacher(teacherId), refreshTeachers()]);
+      return null;
+    } catch (e) {
+      return e instanceof ApiError ? e.message : "No se pudo asignar";
+    }
+  }, [reloadTeacher, refreshTeachers]);
+
+  const removeSlot = useCallback(async (teacherId: string, slotId: string) => {
+    try {
+      await apiDelete(`/schedule/${slotId}`);
+      await Promise.all([reloadTeacher(teacherId), refreshTeachers()]);
+    } catch { /* noop */ }
+  }, [reloadTeacher, refreshTeachers]);
 
   return (
-    <ScheduleCtx.Provider value={{ assignments, assign, courseFor, reset }}>{children}</ScheduleCtx.Provider>
+    <ScheduleCtx.Provider value={{ teachers, loadingTeachers, currentTeacherId, setCurrentTeacherId, loadTeacher, courseFor, assign, removeSlot, refreshTeachers }}>
+      {children}
+    </ScheduleCtx.Provider>
   );
 }
 

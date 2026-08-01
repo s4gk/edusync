@@ -4,9 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
-  Users,
-  ClipboardList,
+  Home,
+  Users2,
+  GraduationCap,
+  BookUser,
+  Briefcase,
   CalendarCheck,
   CalendarRange,
   FileText,
@@ -16,10 +18,20 @@ import {
   Mail,
   Settings,
   ChevronDown,
+  ListChecks,
+  LayoutGrid,
+  FileBadge,
+  Award,
+  Lock,
+  ClipboardCheck,
+  Upload,
+  HardDrive,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-context";
 import { ProfileMenu } from "@/components/profile-menu";
+import { useAuth } from "@/components/auth-context";
 
 type NavItem = {
   label: string;
@@ -31,9 +43,17 @@ type NavItem = {
 
 type NavGroup = { title: string; items: NavItem[] };
 
-const HOME: NavItem = { label: "Inicio", icon: LayoutDashboard, href: "/dashboard" };
+// Ítems superiores y grupos según rol.
+const ADMIN_TOP: NavItem[] = [
+  { label: "Inicio", icon: Home, href: "/dashboard" },
+  { label: "Pendientes", icon: ClipboardCheck, href: "/pendientes" },
+];
+const TEACHER_TOP: NavItem[] = [
+  { label: "Mi clase", icon: ListChecks, href: "/clase" },
+  { label: "Mi día", icon: CalendarCheck, href: "/profesor" },
+];
 
-const GROUPS: NavGroup[] = [
+const ADMIN_GROUPS: NavGroup[] = [
   {
     title: "ACADÉMICO",
     items: [
@@ -41,14 +61,20 @@ const GROUPS: NavGroup[] = [
       { label: "Calificaciones", icon: FileText, href: "/calificaciones" },
       { label: "Asistencia", icon: CalendarCheck, href: "/asistencia" },
       { label: "Boletines", icon: BookText, href: "/boletines" },
+      { label: "Cierre de periodo", icon: Lock, href: "/periodos" },
+      { label: "Cierre de año", icon: Award, href: "/cierre" },
       { label: "Observaciones", icon: MessageSquareWarning, href: "/observaciones", soon: true },
     ],
   },
   {
-    title: "PERSONAS",
+    title: "ADMINISTRACIÓN",
     items: [
-      { label: "Usuarios", icon: Users, href: "/usuarios" },
-      { label: "Matrículas", icon: ClipboardList, href: "/matriculas" },
+      { label: "Estudiantes", icon: GraduationCap, href: "/estudiantes" },
+      { label: "Docentes", icon: BookUser, href: "/profesores" },
+      { label: "Acudientes", icon: Users2, href: "/acudientes" },
+      { label: "Personal", icon: Briefcase, href: "/personal" },
+      { label: "Cursos", icon: LayoutGrid, href: "/grupos" },
+      { label: "Importar", icon: Upload, href: "/importar" },
     ],
   },
   {
@@ -56,8 +82,26 @@ const GROUPS: NavGroup[] = [
     items: [
       { label: "Finanzas", icon: Wallet, href: "/finanzas", badge: { text: "12", tone: "primary" } },
       { label: "Comunicaciones", icon: Mail, href: "/comunicaciones", badge: { text: "3", tone: "muted" }, soon: true },
+      { label: "Certificados", icon: FileBadge, href: "/certificados" },
+      { label: "Drive", icon: HardDrive, href: "/drive" },
       { label: "Configuración", icon: Settings, href: "/configuracion" },
     ],
+  },
+];
+
+// El docente toma asistencia desde "Mi clase"; el consolidado de /asistencia es administrativo y se le oculta.
+const TEACHER_GROUPS: NavGroup[] = [
+  {
+    title: "ACADÉMICO",
+    items: [
+      { label: "Calificaciones", icon: FileText, href: "/calificaciones" },
+      { label: "En riesgo", icon: ShieldAlert, href: "/riesgo" },
+      { label: "Drive", icon: HardDrive, href: "/drive" },
+    ],
+  },
+  {
+    title: "CUENTA",
+    items: [{ label: "Configuración", icon: Settings, href: "/configuracion" }],
   },
 ];
 
@@ -69,7 +113,7 @@ function NavLink({ item, active, collapsed }: { item: NavItem; active: boolean; 
       <Link
         href={item.href}
         title={item.label}
-        className={`relative flex h-10 w-10 items-center justify-center rounded-[10px] transition-colors ${
+        className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] transition-colors ${
           active ? "bg-surface" : "hover:bg-surface/60"
         }`}
       >
@@ -85,7 +129,7 @@ function NavLink({ item, active, collapsed }: { item: NavItem; active: boolean; 
   return (
     <Link
       href={item.href}
-      className={`relative flex h-10 items-center gap-3 rounded-[10px] px-3 transition-colors ${
+      className={`relative flex h-10 shrink-0 items-center gap-3 rounded-[10px] px-3 transition-colors ${
         active ? "bg-surface" : "hover:bg-surface/60"
       }`}
     >
@@ -115,14 +159,16 @@ function NavLink({ item, active, collapsed }: { item: NavItem; active: boolean; 
 export function Sidebar() {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
+  const { user } = useAuth();
+  const isTeacher = user?.role === "TEACHER";
+  const TOP = isTeacher ? TEACHER_TOP : ADMIN_TOP;
+  const GROUPS = isTeacher ? TEACHER_GROUPS : ADMIN_GROUPS;
   const isActive = (href: string) =>
     pathname === href || (href === "/dashboard" && pathname === "/");
 
-  // Todos los grupos abiertos por defecto; se pueden colapsar (solo en modo expandido).
-  const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(GROUPS.map((g) => [g.title, true]))
-  );
-  const toggle = (title: string) => setOpen((s) => ({ ...s, [title]: !s[title] }));
+  // Grupos abiertos por defecto (undefined = abierto); se pueden colapsar en modo expandido.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const toggle = (title: string) => setOpen((s) => ({ ...s, [title]: s[title] === false ? true : false }));
 
   return (
     <aside
@@ -130,8 +176,8 @@ export function Sidebar() {
         collapsed ? "w-[76px]" : "w-[268px]"
       }`}
     >
-      {/* brand */}
-      <div className={`flex items-center gap-3 pb-4 pt-6 ${collapsed ? "justify-center px-0" : "px-5"}`}>
+      {/* brand — 67px + la línea de 1px = 68px, para alinear con el borde inferior del topbar */}
+      <div className={`flex h-[67px] shrink-0 items-center gap-3 ${collapsed ? "justify-center px-0" : "px-5"}`}>
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-primary text-base font-bold text-white">
           E
         </div>
@@ -147,11 +193,13 @@ export function Sidebar() {
 
       {/* nav */}
       <nav
-        className={`flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden ${
+        className={`no-scrollbar flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden ${
           collapsed ? "items-center px-2.5 py-3" : "p-3"
         }`}
       >
-        <NavLink item={HOME} active={isActive(HOME.href)} collapsed={collapsed} />
+        {TOP.map((item) => (
+          <NavLink key={item.href} item={item} active={isActive(item.href)} collapsed={collapsed} />
+        ))}
 
         {collapsed
           ? GROUPS.map((group) => (
@@ -163,7 +211,7 @@ export function Sidebar() {
               </div>
             ))
           : GROUPS.map((group) => {
-              const isOpen = open[group.title];
+              const isOpen = open[group.title] !== false;
               return (
                 <div key={group.title} className="mt-2 flex flex-col">
                   <button
