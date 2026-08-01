@@ -2,33 +2,39 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
-const DATA = [
-  { name: "Superior", value: 32, color: "#5749F4" },
-  { name: "Alto", value: 46, color: "#003300" },
-  { name: "Básico", value: 18, color: "#4D2700" },
-  { name: "Bajo", value: 4, color: "#590F00" },
-];
+export type DistributionPoint = { name: string; scale?: string; value: number; count?: number };
 
-export function DistributionDonut() {
+const COLOR: Record<string, string> = {
+  Superior: "var(--c-brand)",
+  Alto: "var(--c-green)",
+  Básico: "var(--c-amber)",
+  Bajo: "var(--c-red)",
+};
+
+export function DistributionDonut({ data = [] }: { data?: DistributionPoint[] }) {
+  if (!data.length) {
+    return <div className="flex h-full items-center justify-center text-xs text-subtle">Sin distribución de desempeño aún.</div>;
+  }
+  const superiorAlto = data.filter((d) => d.name === "Superior" || d.name === "Alto").reduce((s, d) => s + d.value, 0);
   return (
-    <div className="relative h-[170px] w-full">
+    <div className="relative h-full min-h-[150px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
-            data={DATA}
+            data={data}
             dataKey="value"
             nameKey="name"
             cx="50%"
             cy="50%"
-            innerRadius={60}
-            outerRadius={85}
+            innerRadius="62%"
+            outerRadius="92%"
             paddingAngle={2}
             startAngle={90}
             endAngle={-270}
             stroke="none"
           >
-            {DATA.map((d) => (
-              <Cell key={d.name} fill={d.color} />
+            {data.map((d) => (
+              <Cell key={d.name} fill={COLOR[d.name] ?? "var(--c-brand)"} />
             ))}
           </Pie>
           <Tooltip
@@ -44,7 +50,7 @@ export function DistributionDonut() {
         </PieChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[32px] font-bold leading-none text-ink">78%</span>
+        <span className="text-[32px] font-bold leading-none text-ink">{superiorAlto}%</span>
         <span className="mt-1 text-[11px] text-subtle">Superior + Alto</span>
       </div>
     </div>

@@ -10,3 +10,14 @@ next-env.d.ts
 
 # typescript build info
 *.tsbuildinfo
+
+# backend (school_management) — secretos y artefactos
+*.key
+backend/node_modules
+backend/**/node_modules
+backend/**/dist
+backend/.turbo
+backend/**/.turbo
+
+# claude local
+.claude/settings.local.json

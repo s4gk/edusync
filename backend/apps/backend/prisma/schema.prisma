@@ -1,0 +1,669 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  RECTOR
+  COORDINATOR_ACADEMIC
+  COORDINATOR_CONVIVENCIA
+  TEACHER
+  STUDENT
+  GUARDIAN
+  SECRETARY
+  ACCOUNTANT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  RETIRED
+  GRADUATED
+}
+
+enum GradeScale {
+  SUPERIOR
+  ALTO
+  BASICO
+  BAJO
+}
+
+enum Period {
+  P1
+  P2
+  P3
+  P4
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  IN_ARREARS
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+  PERMISSION
+  EVASION
+}
+
+enum MessageStatus {
+  SENT
+  READ
+}
+
+enum EnrollmentStatus {
+  PRE_ENROLLED
+  FORMALIZED
+  RETIRED
+  TRANSFERRED
+}
+
+enum AnnouncementTarget {
+  ALL
+  GRADE_LEVEL
+  GRADE_GROUP
+  STUDENT
+}
+
+enum ObservationType {
+  ACADEMIC
+  DISCIPLINARY_POSITIVE
+  DISCIPLINARY_NEUTRAL
+  DISCIPLINARY_MILD
+  DISCIPLINARY_SERIOUS
+  DISCIPLINARY_VERY_SERIOUS
+}
+
+// ─── Core ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  passwordHash       String
+  role               Role
+  status             UserStatus @default(ACTIVE)
+  firstName          String
+  lastName           String
+  phone              String?
+  avatarUrl          String?
+  profile            Json?
+  isActive           Boolean    @default(true)
+  deletedAt          DateTime?
+  mustChangePassword Boolean    @default(false)
+  loginAttempts      Int        @default(0)
+  lockUntil          DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  userRoles        UserRole[]
+  teacher          Teacher?
+  student          Student?
+  guardian         Guardian?
+  refreshTokens    RefreshToken[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  sentMessages     Message[]        @relation("SentMessages")
+  receivedMessages Message[]        @relation("ReceivedMessages")
+  closedPeriods    AcademicPeriod[] @relation("PeriodClosedBy")
+  announcements    Announcement[]
+  documents        Document[]
+  driveFolders     DriveFolder[]    @relation("DriveFolderCreator")
+  driveFiles       DriveFile[]      @relation("DriveFileUploader")
+  reminders        Reminder[]
+
+  @@map("users")
+}
+
+// Recordatorios personales del usuario (ej. el docente en Mi día).
+model Reminder {
+  id        String   @id @default(cuid())
+  userId    String
+  text      String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("reminders")
+}
+
+// ─── Drive compartido del colegio (carpetas + archivos) ───────────────────────
+model DriveFolder {
+  id          String   @id @default(cuid())
+  name        String
+  parentId    String?
+  createdById String
+  createdAt   DateTime @default(now())
+
+  parent    DriveFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  DriveFolder[] @relation("FolderTree")
+  files     DriveFile[]
+  createdBy User          @relation("DriveFolderCreator", fields: [createdById], references: [id])
+
+  @@index([parentId])
+  @@map("drive_folders")
+}
+
+model DriveFile {
+  id           String   @id @default(cuid())
+  name         String
+  folderId     String?
+  fileUrl      String
+  mimeType     String?
+  size         Int?
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  folder     DriveFolder? @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  uploadedBy User         @relation("DriveFileUploader", fields: [uploadedById], references: [id])
+
+  @@index([folderId])
+  @@map("drive_files")
+}
+
+// Archivos subidos asociados a una persona (estudiante, acudiente o profesor).
+// `category` agrupa el tipo de soporte (registro_civil, hoja_vida, titulo, etc.).
+model Document {
+  id         String   @id @default(cuid())
+  ownerId    String
+  category   String
+  name       String
+  fileUrl    String
+  mimeType   String?
+  size       Int?
+  uploadedAt DateTime @default(now())
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("documents")
+}
+
+model UserRole {
+  userId String
+  role   Role
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ─── Academic structure ───────────────────────────────────────────────────────
+
+model AcademicYear {
+  id        String   @id @default(cuid())
+  year      Int      @unique
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+  isOpen    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  gradeGroups       GradeGroup[]
+  academicPeriods   AcademicPeriod[]
+  gradeScaleConfigs GradeScaleConfig[]
+  enrollments       Enrollment[]
+  invoices          Invoice[]
+  yearClosings      YearClosing[]
+
+  @@map("academic_years")
+}
+
+model AcademicPeriod {
+  id             String    @id @default(cuid())
+  academicYearId String
+  name           String
+  periodNumber   Int
+  startDate      DateTime
+  endDate        DateTime
+  weightPercent  Decimal   @db.Decimal(5, 2)
+  isClosed       Boolean   @default(false)
+  closedAt       DateTime?
+  closedById     String?
+  createdAt      DateTime  @default(now())
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  closedBy     User?        @relation("PeriodClosedBy", fields: [closedById], references: [id])
+
+  @@unique([academicYearId, periodNumber])
+  @@map("academic_periods")
+}
+
+model GradeScaleConfig {
+  id             String     @id @default(cuid())
+  academicYearId String
+  scale          GradeScale
+  minScore       Decimal    @db.Decimal(4, 2)
+  maxScore       Decimal    @db.Decimal(4, 2)
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([academicYearId, scale])
+  @@map("grade_scale_configs")
+}
+
+model GradeGroup {
+  id             String  @id @default(cuid())
+  name           String
+  gradeLevel     Int
+  academicYearId String
+  directorId     String?
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  director     Teacher?     @relation("GroupDirector", fields: [directorId], references: [id])
+  students     Student[]
+  subjects     Subject[]
+  reportCards  ReportCard[]
+  enrollments  Enrollment[]
+
+  @@unique([name, academicYearId])
+  @@map("grade_groups")
+}
+
+model Subject {
+  id           String @id @default(cuid())
+  name         String
+  gradeGroupId String
+  teacherId    String
+  hoursPerWeek Int    @default(1)
+
+  gradeGroup    GradeGroup    @relation(fields: [gradeGroupId], references: [id])
+  teacher       Teacher       @relation(fields: [teacherId], references: [id])
+  attendances   Attendance[]
+  gradeRecords  GradeRecord[]
+  achievements  Achievement[]
+  scheduleSlots ScheduleSlot[]
+
+  @@map("subjects")
+}
+
+// ─── Horarios ───────────────────────────────────────────────────────────────────
+
+model ScheduleSlot {
+  id        String   @id @default(cuid())
+  subjectId String
+  dayOfWeek Int // 1=Lunes … 5=Viernes
+  block     Int // 1..6 (hora del día)
+  room      String?
+  createdAt DateTime @default(now())
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, dayOfWeek, block])
+  @@map("schedule_slots")
+}
+
+// ─── People ───────────────────────────────────────────────────────────────────
+
+model Teacher {
+  id         String  @id @default(cuid())
+  userId     String  @unique
+  speciality String?
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjects       Subject[]
+  directedGroups GradeGroup[] @relation("GroupDirector")
+
+  @@map("teachers")
+}
+
+model Student {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  gradeGroupId   String?
+  enrollmentCode String   @unique
+  documentId     String
+  birthDate      DateTime
+  address        String?
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gradeGroup     GradeGroup?       @relation(fields: [gradeGroupId], references: [id])
+  guardians      StudentGuardian[]
+  enrollments    Enrollment[]
+  attendances    Attendance[]
+  gradeRecords   GradeRecord[]
+  activityScores ActivityScore[]
+  observations   Observation[]
+  reportCards    ReportCard[]
+  invoices       Invoice[]
+
+  @@map("students")
+}
+
+model Guardian {
+  id       String @id @default(cuid())
+  userId   String @unique
+  relation String
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students StudentGuardian[]
+
+  @@map("guardians")
+}
+
+model StudentGuardian {
+  studentId  String
+  guardianId String
+  isPrimary  Boolean @default(false)
+
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  guardian Guardian @relation(fields: [guardianId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, guardianId])
+  @@map("student_guardians")
+}
+
+// ─── Attendance ───────────────────────────────────────────────────────────────
+
+model Attendance {
+  id        String           @id @default(cuid())
+  studentId String
+  subjectId String
+  date      DateTime         @db.Date
+  status    AttendanceStatus
+  notes     String?
+  createdAt DateTime         @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([studentId, subjectId, date])
+  @@map("attendances")
+}
+
+// ─── Grades ───────────────────────────────────────────────────────────────────
+
+model GradeRecord {
+  id           String     @id @default(cuid())
+  studentId    String
+  subjectId    String
+  period       Period
+  score        Decimal    @db.Decimal(4, 2)
+  scale        GradeScale
+  observations String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([studentId, subjectId, period])
+  @@map("grade_records")
+}
+
+// ─── Observations ─────────────────────────────────────────────────────────────
+
+model Observation {
+  id        String          @id @default(cuid())
+  studentId String
+  authorId  String
+  type      ObservationType @default(ACADEMIC)
+  content   String
+  date      DateTime        @default(now())
+  createdAt DateTime        @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@map("observations")
+}
+
+// ─── Year close ───────────────────────────────────────────────────────────────
+
+model YearClosing {
+  id             String   @id @default(cuid())
+  academicYearId String
+  closedAt       DateTime @default(now())
+  closedBy       String
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@map("year_closings")
+}
+
+// ─── Report cards ─────────────────────────────────────────────────────────────
+
+model ReportCard {
+  id           String   @id @default(cuid())
+  studentId    String
+  gradeGroupId String
+  period       Period
+  pdfUrl       String?
+  isPublished  Boolean  @default(false)
+  generatedAt  DateTime @default(now())
+
+  student    Student    @relation(fields: [studentId], references: [id])
+  gradeGroup GradeGroup @relation(fields: [gradeGroupId], references: [id])
+
+  @@unique([studentId, gradeGroupId, period])
+  @@map("report_cards")
+}
+
+// ─── Finance ──────────────────────────────────────────────────────────────────
+
+model TuitionConfig {
+  id             String  @id @default(cuid())
+  academicYearId String
+  gradeLevel     Int
+  enrollmentFee  Decimal @db.Decimal(12, 2)
+  monthlyFee     Decimal @db.Decimal(12, 2)
+  lateFeePercent Decimal @db.Decimal(5, 2) @default(0)
+  createdAt      DateTime @default(now())
+
+  @@unique([academicYearId, gradeLevel])
+  @@map("tuition_configs")
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  studentId      String
+  academicYearId String
+  month          Int
+  amount         Decimal       @db.Decimal(12, 2)
+  lateFee        Decimal       @db.Decimal(12, 2) @default(0)
+  status         PaymentStatus @default(PENDING)
+  dueDate        DateTime
+  createdAt      DateTime      @default(now())
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  payment      Payment?
+
+  @@unique([studentId, academicYearId, month])
+  @@map("invoices")
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  invoiceId     String   @unique
+  receiptNumber String   @unique
+  paidAt        DateTime
+  amount        Decimal  @db.Decimal(12, 2)
+  pdfUrl        String?
+  createdAt     DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("payments")
+}
+
+// ─── Communications ───────────────────────────────────────────────────────────
+
+model Message {
+  id         String        @id @default(cuid())
+  senderId   String
+  receiverId String
+  subject    String
+  body       String
+  status     MessageStatus @default(SENT)
+  createdAt  DateTime      @default(now())
+
+  sender   User @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  @@map("messages")
+}
+
+// ─── Communications ───────────────────────────────────────────────────────────
+
+model Announcement {
+  id           String             @id @default(cuid())
+  authorId     String
+  title        String
+  body         String
+  target       AnnouncementTarget @default(ALL)
+  gradeLevel   Int?
+  gradeGroupId String?
+  studentId    String?
+  isPublished  Boolean            @default(false)
+  publishedAt  DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  author User @relation(fields: [authorId], references: [id])
+
+  @@map("announcements")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ─── Enrollment (Matrículas) ──────────────────────────────────────────────────
+
+model Enrollment {
+  id             String           @id @default(cuid())
+  studentId      String
+  academicYearId String
+  gradeGroupId   String
+  status         EnrollmentStatus @default(PRE_ENROLLED)
+  enrolledAt     DateTime         @default(now())
+  formalizedAt   DateTime?
+  retiredAt      DateTime?
+  retiredReason  String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  student      Student               @relation(fields: [studentId], references: [id])
+  academicYear AcademicYear          @relation(fields: [academicYearId], references: [id])
+  gradeGroup   GradeGroup            @relation(fields: [gradeGroupId], references: [id])
+  documents    EnrollmentDocument[]
+
+  @@unique([studentId, academicYearId])
+  @@map("enrollments")
+}
+
+model EnrollmentDocument {
+  id           String    @id @default(cuid())
+  enrollmentId String
+  name         String
+  isDelivered  Boolean   @default(false)
+  deliveredAt  DateTime?
+  notes        String?
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@map("enrollment_documents")
+}
+
+// ─── Achievements & Activities (Logros y Actividades Evaluativas) ─────────────
+
+model Achievement {
+  id            String  @id @default(cuid())
+  subjectId     String
+  periodNumber  Int
+  name          String
+  description   String?
+  weightPercent Decimal @db.Decimal(5, 2)
+  createdAt     DateTime @default(now())
+
+  subject    Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  @@map("achievements")
+}
+
+model Activity {
+  id            String   @id @default(cuid())
+  achievementId String
+  name          String
+  weightPercent Decimal  @db.Decimal(5, 2)
+  maxScore      Decimal  @db.Decimal(4, 2) @default(5.0)
+  date          DateTime?
+  createdAt     DateTime @default(now())
+
+  achievement Achievement   @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  scores      ActivityScore[]
+
+  @@map("activities")
+}
+
+model ActivityScore {
+  id         String   @id @default(cuid())
+  activityId String
+  studentId  String
+  score      Decimal  @db.Decimal(4, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  student  Student  @relation(fields: [studentId], references: [id])
+
+  @@unique([activityId, studentId])
+  @@map("activity_scores")
+}
+
+// ─── Audit ────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  oldValues Json?
+  newValues Json?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
