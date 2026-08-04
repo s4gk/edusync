@@ -172,9 +172,19 @@ export class DashboardService {
       this.prisma.student.count({ where: { user: { isActive: true, deletedAt: null } } }),
       this.prisma.teacher.count({ where: { user: { isActive: true, deletedAt: null } } }),
       this.prisma.user.count({ where: { isActive: true, deletedAt: null } }),
+      // Matriculados del año = estudiantes activos con curso asignado en el año
+      // en curso. NO se cuenta la tabla `enrollment`: ningún flujo de la
+      // aplicación la escribe (el asistente de matrícula crea User+Student y
+      // deja el curso opcional para la pre-matrícula), así que ese contador
+      // marcaba 0 con el colegio lleno y seguiría en 0 después de matricular a
+      // alguien en vivo. Los que aún no tienen curso son justamente los "sin
+      // asignar" del directorio de estudiantes.
       currentYear
-        ? this.prisma.enrollment.count({
-            where: { academicYearId: currentYear.id, status: 'FORMALIZED' },
+        ? this.prisma.student.count({
+            where: {
+              user: { isActive: true, deletedAt: null },
+              gradeGroup: { academicYearId: currentYear.id },
+            },
           })
         : 0,
       this.prisma.invoice.count({ where: { status: 'PENDING' } }),

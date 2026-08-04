@@ -43,8 +43,12 @@
   --c-amber: #f59e0b;
   --c-red: #ef4444;
   --c-income-1: #5749f4; /* matrículas */
-  --c-income-2: #003300; /* pensiones */
-  --c-income-3: #4d2700; /* otros */
+  /* Antes #003300 y #4d2700: casi negros. Fallaban banda de luminosidad y piso
+     de croma (se leían como gris/negro) y entre sí eran indistinguibles con
+     daltonismo protán (ΔE 0.6). Estos tres pasan las cinco comprobaciones de
+     paleta categórica sobre fondo blanco. */
+  --c-income-2: #12a150; /* pensiones */
+  --c-income-3: #b5179e; /* otros */
 
   /* gradiente de las tarjetas hero (banners morados) */
   --grad-primary: linear-gradient(135deg, #5749f4 0%, #7c5bff 100%);
@@ -100,8 +104,11 @@
   --c-amber: #ffc857;
   --c-red: #ff7d70;
   --c-income-1: #7d6fff;
-  --c-income-2: #50b87a; /* antes #003300 → invisible en oscuro */
-  --c-income-3: #e0a94e; /* antes #4d2700 → invisible en oscuro */
+  /* Pasos propios del modo oscuro, validados contra #16161a (no es el mismo
+     color del claro aclarado). El verde y el ámbar anteriores se confundían
+     entre sí con daltonismo protán (ΔE 5.2). */
+  --c-income-2: #26a870;
+  --c-income-3: #cf5bb0;
 
   /* hero atenuado: morado más profundo y menos brillante sobre el gris. */
   --grad-primary: linear-gradient(135deg, #4a3ec4 0%, #5d4ad6 100%);

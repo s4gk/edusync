@@ -155,19 +155,6 @@ function RangeSelect() {
   );
 }
 
-function Spark({ tone }: { tone: Tone }) {
-  const color = { info: "var(--s-info)", primary: "var(--primary-tint)", success: "var(--s-success)", warning: "var(--s-warning)", error: "var(--s-error)" }[tone];
-  const strong = { info: "var(--s-info-fg)", primary: "var(--c-brand)", success: "var(--s-success-fg)", warning: "var(--s-warning-fg)", error: "var(--s-error-fg)" }[tone];
-  const bars = [8, 12, 10, 16];
-  return (
-    <div className="flex items-end gap-[3px]" style={{ height: 20 }}>
-      {bars.map((h, i) => (
-        <span key={i} className="w-1 rounded-sm" style={{ height: h, background: i === bars.length - 1 ? strong : color }} />
-      ))}
-    </div>
-  );
-}
-
 function KpiCard({ k }: { k: Kpi }) {
   const t = TONE[k.tone];
   const Icon = k.icon;
@@ -189,10 +176,7 @@ function KpiCard({ k }: { k: Kpi }) {
       </div>
       <p className="text-[11px] font-semibold tracking-wide text-subtle">{k.label}</p>
       <p className="text-[30px] font-bold leading-none -tracking-[0.01em] text-ink">{k.value}</p>
-      <div className="flex items-center justify-between">
-        <Spark tone={k.tone} />
-        {k.foot && <span className="text-[11px] text-subtle">{k.foot}</span>}
-      </div>
+      {k.foot && <span className="text-[11px] text-subtle">{k.foot}</span>}
     </div>
   );
 }
