@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/auth-context";
 import { ApiError } from "@/lib/api";
+import { homeForRole, isFamilyRole } from "@/lib/home";
 
 const FOOTER_LINKS = ["Términos", "Privacidad", "Estatus del sistema"];
 
@@ -35,14 +36,18 @@ export default function LoginPage() {
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   // Destino tras autenticar: respeta el ?next= que dejó el guard, si es seguro;
-  // si no, aterriza por rol (docente → su clase, resto → dashboard).
+  // si no, aterriza por rol (docente → su clase, familia → su vista, resto →
+  // dashboard).
   function resolveDestination(role?: string) {
     if (typeof window !== "undefined") {
       const next = new URLSearchParams(window.location.search).get("next");
       // Solo rutas internas absolutas, para evitar redirecciones abiertas.
-      if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+      // Un acudiente o estudiante no vuelve a una ruta administrativa aunque el
+      // guard la haya guardado: ahí no puede hacer nada.
+      const interna = next && next.startsWith("/") && !next.startsWith("//");
+      if (interna && !isFamilyRole(role)) return next!;
     }
-    return role === "TEACHER" ? "/clase" : "/dashboard";
+    return homeForRole(role);
   }
 
   // Si ya hay sesión activa, no tiene sentido mostrar el login.

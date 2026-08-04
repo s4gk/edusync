@@ -4,9 +4,11 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/components/auth-context";
+import { homeForRole } from "@/lib/home";
 
-// Aterrizaje por rol: el docente entra directo a su clase (llamar a lista);
-// el resto al dashboard. Sin sesión, al login.
+// Aterrizaje por rol: el docente entra directo a su clase (llamar a lista), el
+// acudiente y el estudiante a su propia vista, el resto al dashboard.
+// Sin sesión, al login.
 export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -17,7 +19,7 @@ export default function Home() {
       router.replace("/login");
       return;
     }
-    router.replace(user.role === "TEACHER" ? "/clase" : "/dashboard");
+    router.replace(homeForRole(user.role));
   }, [loading, user, router]);
 
   return (

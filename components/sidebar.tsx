@@ -34,6 +34,7 @@ import {
 import { useSidebar } from "@/components/sidebar-context";
 import { ProfileMenu } from "@/components/profile-menu";
 import { useAuth } from "@/components/auth-context";
+import { useSchoolName } from "@/lib/home";
 
 type NavItem = {
   label: string;
@@ -164,6 +165,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
   const { user } = useAuth();
+  const schoolName = useSchoolName("Colegio San Mateo");
   const isTeacher = user?.role === "TEACHER";
   const TOP = isTeacher ? TEACHER_TOP : ADMIN_TOP;
   const GROUPS = isTeacher ? TEACHER_GROUPS : ADMIN_GROUPS;
@@ -188,7 +190,7 @@ export function Sidebar() {
         {!collapsed && (
           <div className="flex flex-col overflow-hidden">
             <span className="truncate text-[15px] font-bold leading-tight text-ink">Edusync</span>
-            <span className="truncate text-[11px] font-medium text-subtle">Colegio San Mateo</span>
+            <span className="truncate text-[11px] font-medium text-subtle">{schoolName}</span>
           </div>
         )}
       </div>

@@ -4,9 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { EllipsisVertical, User, Settings, LifeBuoy, LogOut } from "lucide-react";
 import { useDismiss } from "@/components/use-dismiss";
+import { useAuth } from "@/components/auth-context";
+import { roleLabel } from "@/lib/home";
 
 export function ProfileMenu({ collapsed }: { collapsed: boolean }) {
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useDismiss<HTMLDivElement>(open, () => setOpen(false));
 
@@ -15,15 +18,31 @@ export function ProfileMenu({ collapsed }: { collapsed: boolean }) {
     router.push(href);
   };
 
+  // Cerrar sesión tiene que limpiar la sesión, no solo navegar a /login: antes
+  // el botón solo empujaba la ruta y el token seguía vivo.
+  const salir = async () => {
+    setOpen(false);
+    try {
+      await logout();
+    } finally {
+      router.replace("/login");
+    }
+  };
+
+  const nombre = user ? `${user.firstName} ${user.lastName}`.trim() : "";
+  const iniciales =
+    ((user?.firstName?.[0] ?? "") + (user?.lastName?.[0] ?? "")).toUpperCase() || "··";
+  const cargo = roleLabel(user?.role);
+
   return (
     <div className="relative" ref={ref}>
       {collapsed ? (
         <button
           onClick={() => setOpen((o) => !o)}
-          title="María Rojas · Rectora"
+          title={`${nombre}${cargo ? ` · ${cargo}` : ""}`}
           className="flex h-9 w-9 items-center justify-center rounded-full border border-line-soft bg-line-soft text-[13px] font-semibold text-ink transition-colors hover:bg-line"
         >
-          MR
+          {iniciales}
         </button>
       ) : (
         <button
@@ -31,11 +50,11 @@ export function ProfileMenu({ collapsed }: { collapsed: boolean }) {
           className="flex w-full items-center gap-2.5 rounded-[10px] p-1 text-left transition-colors hover:bg-surface"
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line-soft bg-line-soft text-[13px] font-semibold text-ink">
-            MR
+            {iniciales}
           </span>
           <span className="flex flex-1 flex-col overflow-hidden">
-            <span className="truncate text-[13px] font-bold text-ink">María Rojas</span>
-            <span className="truncate text-[11px] font-medium text-subtle">Rectora</span>
+            <span className="truncate text-[13px] font-bold text-ink">{nombre}</span>
+            <span className="truncate text-[11px] font-medium text-subtle">{cargo}</span>
           </span>
           <EllipsisVertical className="h-4 w-4 shrink-0 text-subtle" />
         </button>
@@ -48,10 +67,12 @@ export function ProfileMenu({ collapsed }: { collapsed: boolean }) {
           }`}
         >
           <div className="flex items-center gap-2.5 px-2.5 py-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-tint text-[13px] font-bold text-primary">MR</span>
-            <div className="flex flex-col">
-              <span className="text-[13px] font-bold text-ink">María Rojas</span>
-              <span className="text-[11px] text-subtle">maria.rojas@colegiosanmateo.edu.co</span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-tint text-[13px] font-bold text-primary">
+              {iniciales}
+            </span>
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-[13px] font-bold text-ink">{nombre}</span>
+              <span className="truncate text-[11px] text-subtle">{user?.email}</span>
             </div>
           </div>
           <div className="my-1 h-px bg-line" />
@@ -65,7 +86,7 @@ export function ProfileMenu({ collapsed }: { collapsed: boolean }) {
             <LifeBuoy className="h-4 w-4 text-subtle" /> Ayuda y soporte
           </button>
           <div className="my-1 h-px bg-line" />
-          <button onClick={() => go("/login")} className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-danger transition-colors hover:bg-s-error/30">
+          <button onClick={salir} className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-danger transition-colors hover:bg-s-error/30">
             <LogOut className="h-4 w-4" /> Cerrar sesión
           </button>
         </div>
