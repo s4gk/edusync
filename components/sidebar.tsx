@@ -26,6 +26,7 @@ import {
   ClipboardCheck,
   Upload,
   HardDrive,
+  Bot,
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -84,6 +85,7 @@ const ADMIN_GROUPS: NavGroup[] = [
       { label: "Comunicaciones", icon: Mail, href: "/comunicaciones", badge: { text: "3", tone: "muted" }, soon: true },
       { label: "Certificados", icon: FileBadge, href: "/certificados" },
       { label: "Drive", icon: HardDrive, href: "/drive" },
+      { label: "Asistente WhatsApp", icon: Bot, href: "/chatbot" },
       { label: "Configuración", icon: Settings, href: "/configuracion" },
     ],
   },

@@ -38,6 +38,21 @@ export class AuthController {
     return { accessToken };
   }
 
+  // Públicos a propósito: quien no puede entrar tampoco tiene token.
+  // El anti-abuso es el ThrottlerGuard global (300/min) más el hecho de que la
+  // respuesta de forgot-password es idéntica exista o no la cuenta.
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email || '');
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body('token') token: string, @Body('password') password: string) {
+    return this.authService.resetPassword(token, password);
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)

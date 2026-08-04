@@ -2,15 +2,19 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import { LoginDto } from './dto/login.dto';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
+const RESET_MINUTES = 60;
 
 @Injectable()
 export class AuthService {
@@ -18,6 +22,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly mail: MailService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -83,6 +88,95 @@ export class AuthService {
       // RF-AUTH-05: flag front-end to redirect to change-password
       mustChangePassword: user.mustChangePassword,
     };
+  }
+
+  /**
+   * Paso 1: pedir el enlace.
+   *
+   * Responde SIEMPRE lo mismo, exista o no la cuenta. Si distinguiera, este
+   * endpoint sería un comprobador de correos: cualquiera podría averiguar qué
+   * docentes y acudientes están registrados en el colegio probando direcciones.
+   */
+  async forgotPassword(email: string) {
+    const respuesta = {
+      message:
+        'Si el correo corresponde a una cuenta activa, te enviamos un enlace para restablecer la contraseña.',
+    };
+
+    const user = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (!user || !user.isActive || user.deletedAt) return respuesta;
+
+    // Invalidar los pedidos anteriores que sigan vivos: si alguien pide el
+    // enlace tres veces, solo el último debe servir.
+    await this.prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    const token = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + RESET_MINUTES * 60 * 1000);
+
+    await this.prisma.passwordResetToken.create({ data: { tokenHash, userId: user.id, expiresAt } });
+
+    const base = (process.env.PUBLIC_URL || 'http://localhost:3003').replace(/\/$/, '');
+    const enlace = `${base}/restablecer?token=${token}`;
+    await this.mail.enviarRestablecerContrasena(
+      user.email,
+      user.firstName || 'usuario',
+      enlace,
+      RESET_MINUTES,
+    );
+
+    return respuesta;
+  }
+
+  /** Paso 2: canjear el enlace por una contraseña nueva. */
+  async resetPassword(token: string, newPassword: string) {
+    if (!token || !newPassword || newPassword.length < 8) {
+      throw new BadRequestException('La nueva contraseña debe tener al menos 8 caracteres.');
+    }
+
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    const registro = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+
+    if (!registro || registro.usedAt || registro.expiresAt < new Date()) {
+      throw new BadRequestException(
+        'El enlace no es válido o ya venció. Solicita uno nuevo desde "Olvidé mi contraseña".',
+      );
+    }
+    if (!registro.user.isActive || registro.user.deletedAt) {
+      throw new BadRequestException('La cuenta no está activa.');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: registro.userId },
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+          // Quien recupera la contraseña suele venir precisamente de haberse
+          // bloqueado a fuerza de intentos: dejarlo bloqueado sería absurdo.
+          loginAttempts: 0,
+          lockUntil: null,
+        },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: registro.id },
+        data: { usedAt: new Date() },
+      }),
+      // Cerrar las sesiones abiertas. Si la contraseña se restablece porque la
+      // cuenta estaba comprometida, dejar vivo el refresh token del atacante
+      // haría inútil el cambio.
+      this.prisma.refreshToken.deleteMany({ where: { userId: registro.userId } }),
+    ]);
+
+    return { message: 'Tu contraseña fue actualizada. Ya puedes iniciar sesión.' };
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {

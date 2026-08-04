@@ -112,6 +112,7 @@ model User {
   student          Student?
   guardian         Guardian?
   refreshTokens    RefreshToken[]
+  passwordResets   PasswordResetToken[]
   auditLogs        AuditLog[]
   notifications    Notification[]
   sentMessages     Message[]        @relation("SentMessages")
@@ -212,6 +213,23 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  // Se guarda el HASH del token, no el token. Lo que viaja por correo solo lo
+  // conoce quien recibe el mensaje: si alguien lee esta tabla no puede
+  // reutilizar nada, igual que con las contraseñas.
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 // ─── Academic structure ───────────────────────────────────────────────────────
@@ -666,4 +684,80 @@ model AuditLog {
   user User @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
+}
+
+// ─── WhatsApp / Chatbot ───────────────────────────────────────────────────────
+
+/// Ajustes editables en caliente desde la UI. Existen para lo que NO puede vivir
+/// en el .env: apagar el bot mientras le está diciendo disparates a un acudiente
+/// no puede requerir un `pm2 restart`, tiene que surtir efecto en segundos.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+/// Estado de una conversación de WhatsApp (historial + acción pendiente de
+/// confirmar). En base y no en memoria para que sobreviva a un reinicio: si el
+/// backend se reinicia entre "¿confirmas?" y el "sí", el usuario no puede quedar
+/// confirmando una acción que el proceso ya olvidó.
+model ChatbotSession {
+  convKey   String   @id
+  phone     String
+  userId    String?
+  agent     String?
+  history   Json
+  pending   Json?
+  updatedAt DateTime @updatedAt
+
+  @@index([phone])
+  @@map("chatbot_sessions")
+}
+
+/// Consumo por día y por conversación. Es lo que alimenta el tope diario del
+/// gate: sin esto, un bucle de mensajes puede gastar la cuenta del LLM en una
+/// noche sin que nadie se entere hasta la factura.
+model ChatbotUsage {
+  id        String   @id @default(cuid())
+  day       String
+  convKey   String
+  phone     String
+  messages  Int      @default(0)
+  tokensIn  Int      @default(0)
+  tokensOut Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([day, convKey])
+  @@index([day])
+  @@map("chatbot_usage")
+}
+
+/// Deduplicación de mensajes entrantes. Meta/Kapso reintentan el webhook si la
+/// respuesta tarda, y sin esto el bot contesta dos veces al mismo mensaje —y
+/// peor, ejecuta dos veces una escritura ya confirmada.
+model ChatbotSeenMessage {
+  messageId String   @id
+  seenAt    DateTime @default(now())
+
+  @@index([seenAt])
+  @@map("chatbot_seen_messages")
+}
+
+/// Log de la conversación, entrante y saliente. Se guarda SIEMPRE, atienda el
+/// bot o no: apagar el bot debe dejar el canal como estaba (el mensaje queda
+/// registrado y lo atiende una persona), no dejar a la familia hablando sola.
+model WhatsappMessage {
+  id        String   @id @default(cuid())
+  phone     String
+  direction String
+  body      String
+  messageId String?
+  userId    String?
+  handledBy String?
+  createdAt DateTime @default(now())
+
+  @@index([phone, createdAt])
+  @@map("whatsapp_messages")
 }

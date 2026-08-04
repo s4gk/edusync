@@ -19,5 +19,9 @@ backend/**/dist
 backend/.turbo
 backend/**/.turbo
 
+# respaldos y archivos subidos (datos de personas — nunca al repositorio)
+backend/backups
+backend/uploads
+
 # claude local
 .claude/settings.local.json

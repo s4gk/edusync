@@ -12,6 +12,7 @@ import {
   GraduationCap,
   LayoutGrid,
   FileBadge,
+  Bot,
   Award,
   Lock,
   ClipboardCheck,
@@ -56,6 +57,7 @@ export const ROUTES: Route[] = [
   { label: "Finanzas", href: "/finanzas", group: "Operación", icon: Wallet, keywords: "cartera cobros pagos pension" },
   { label: "Comunicaciones", href: "/comunicaciones", group: "Operación", icon: Mail, keywords: "mensajes circulares" },
   { label: "Certificados", href: "/certificados", group: "Operación", icon: FileBadge, keywords: "constancia estudio notas paz y salvo pdf secretaria" },
+  { label: "Asistente WhatsApp", href: "/chatbot", group: "Operación", icon: Bot, keywords: "chatbot bot whatsapp agente ia acudientes mensajes" },
   { label: "Drive", href: "/drive", group: "Operación", icon: HardDrive, keywords: "archivos carpetas recursos compartido subir documentos" },
   { label: "Configuración", href: "/configuracion", group: "Operación", icon: Settings, keywords: "ajustes perfil cuenta" },
 ];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ShieldCheck,
@@ -174,12 +175,12 @@ export default function LoginPage() {
                 >
                   Contraseña
                 </label>
-                <button
-                  type="button"
+                <Link
+                  href="/olvide"
                   className="text-xs font-semibold text-primary hover:underline"
                 >
                   ¿La olvidaste?
-                </button>
+                </Link>
               </div>
               <div className="flex h-12 items-center gap-2.5 rounded-[10px] border-[1.5px] border-primary px-4">
                 <Lock className="h-[15px] w-[15px] shrink-0 text-primary" />
