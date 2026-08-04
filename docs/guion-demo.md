@@ -25,7 +25,7 @@ Duración objetivo: **20 minutos** de recorrido + preguntas.
 |---|---|---|
 | Rector | `rector@school.edu.co` | `Admin1234!` |
 | Docente | `profesor@school.edu.co` | `Admin1234!` |
-| Acudiente | `marta.avila29@familia.edu.co` | pídela con "Restablecer contraseña" desde la ficha |
+| Acudiente | `marta.avila29@familia.edu.co` | `DMvzzK!862mW` (hija: Quentin Ávila, 7A) |
 
 > Entra como **Rector**, no como Super Admin: el Super Admin saluda "Buenas tardes, Super"
 > y no tiene nombre de persona. El rector se llama Carlos Rectorado.
@@ -63,9 +63,16 @@ Duración objetivo: **20 minutos** de recorrido + preguntas.
    ausentes y guarda. → *"Dos toques y quedó."*
 2. Toca el **nombre de un estudiante** → ficha rápida con su promedio, el contacto del
    acudiente y el observador para anotar ahí mismo.
-3. **Calificaciones.** Muestra el pegado desde Excel (`Ctrl+V` sobre una columna) y el
-   autoguardado. Crea un logro y una evaluación. → *"Esto es lo que hoy hacen en un
-   cuaderno o en un Excel que solo ellos entienden."*
+3. **Calificaciones.** El libro se abre en el **periodo vigente (P3, julio–septiembre)**,
+   que está en blanco a propósito: es el periodo que apenas empieza. Ese es el guion:
+   **crea el logro** (Saber/Hacer con su peso), **crea la evaluación** y **pega las notas
+   desde Excel** (`Ctrl+V` sobre la columna) con autoguardado.
+   → *"Esto es lo que hoy hacen en un cuaderno o en un Excel que solo ellos entienden."*
+
+   > **Cuidado:** no intentes crear un logro en P1 o P2. Ahí los pesos ya suman 100 % y el
+   > sistema lo rechaza — con un mensaje claro, pero un error en vivo se lee como falla.
+   > Si quieres mostrar esa validación, hazlo a propósito y nómbrala: *"no deja armar una
+   > planilla que no cuadre"*.
 4. **En riesgo.** Sus estudiantes con nota baja o inasistencia, sin buscarlos a mano.
 
 ## Acto 3 — La familia (5 min)
