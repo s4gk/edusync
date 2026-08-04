@@ -6,12 +6,15 @@ import {
   ArrowLeft, MapPin, Clock, CalendarCheck, ClipboardList, CircleDot, ListChecks, FileText, Loader2,
 } from "lucide-react";
 import { useSchedule } from "@/components/schedule-context";
-import { BLOCKS, currentBlock, fmt, timeToMin } from "@/lib/schedule";
+import { BLOCKS, colorFor, currentBlock, fmt, timeToMin, type Course } from "@/lib/schedule";
 import { apiGet } from "@/lib/api";
 import { TakeTable, type AttRosterRow, type AttRecord } from "@/components/attendance-table";
 import { StudentQuickView } from "@/components/student-quick-view";
+import { useAuth } from "@/components/auth-context";
 
 export default function ClasePage() {
+  const { user } = useAuth();
+  const esDocente = user?.role === "TEACHER";
   const { teachers, currentTeacherId, setCurrentTeacherId, loadTeacher, courseFor } = useSchedule();
   const teacher = teachers.find((t) => t.id === currentTeacherId) ?? null;
 
@@ -38,9 +41,14 @@ export default function ClasePage() {
   const defaultBlockId = curCourse ? curBlk!.id : dayClasses[0]?.block.id ?? null;
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Clase elegida a mano. El horario manda, pero fuera de la hora de clase la
+  // pantalla se quedaba en "no hay clase" sin salida: un docente que quiere
+  // revisar el llamado a lista de su curso a las 4 p. m. no podía.
+  const [manualCourse, setManualCourse] = useState<Course | null>(null);
   const effId = selectedId ?? defaultBlockId;
   const effBlock = BLOCKS.find((b) => b.id === effId) ?? null;
-  const effCourse = effBlock ? courseFor(tid, viewDay, effBlock.id) : undefined;
+  const scheduled = effBlock ? courseFor(tid, viewDay, effBlock.id) : undefined;
+  const effCourse = scheduled ?? manualCourse ?? undefined;
   const isCurrent = !!curCourse && curBlk?.id === effId;
   const remaining = isCurrent && nowMin >= 0 && effBlock ? timeToMin(effBlock.end) - nowMin : null;
 
@@ -74,15 +82,46 @@ export default function ClasePage() {
 
   useEffect(() => { loadRoster(); }, [loadRoster]);
 
-  if (!effCourse || !effBlock) {
+  if (!effCourse) {
+    const misClases = teacher?.subjects ?? [];
     return (
       <div className="flex flex-col items-center justify-center gap-3 px-8 py-24 text-center">
         <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface text-subtle"><CalendarCheck className="h-7 w-7" /></span>
-        <h1 className="text-xl font-bold text-ink">No hay clase seleccionada</h1>
-        <p className="max-w-sm text-sm text-subtle">{teacher ? `${teacher.name} no tiene clases ${school ? "hoy" : "el lunes"}.` : "Cargando horario…"}</p>
+        <h1 className="text-xl font-bold text-ink">No hay clase en este momento</h1>
+        <p className="max-w-sm text-sm text-subtle">
+          {teacher
+            ? `${teacher.name} no tiene clases ${school ? "a esta hora" : "el fin de semana"}.${misClases.length ? " Elige un curso para pasar lista igual:" : ""}`
+            : "Cargando horario…"}
+        </p>
+        {misClases.length > 0 && (
+          <div className="flex max-w-lg flex-wrap items-center justify-center gap-1.5">
+            {misClases.map((s) => (
+              <button
+                key={s.id}
+                onClick={() =>
+                  setManualCourse({
+                    slotId: `manual-${s.id}`,
+                    subjectId: s.id,
+                    materia: s.name,
+                    grado: s.gradeGroup?.name ?? "—",
+                    gradeGroupId: s.gradeGroupId,
+                    aula: "—",
+                    color: colorFor(s.name),
+                  })
+                }
+                className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-surface"
+              >
+                <span className="h-2 w-2 rounded-full" style={{ background: colorFor(s.name) }} />
+                {s.name} · {s.gradeGroup?.name ?? "—"}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-center gap-2">
-          {teachers.length > 0 && (
-            <select value={currentTeacherId} onChange={(e) => setCurrentTeacherId(e.target.value)} className="h-9 rounded-lg border border-line bg-card px-3 text-[13px] font-semibold text-ink outline-none">
+          {/* El selector de docente es para administración: un docente solo se
+              ve a sí mismo, y verlo aquí invitaba a pasar lista por otro. */}
+          {teachers.length > 0 && !esDocente && (
+            <select value={currentTeacherId} onChange={(e) => { setCurrentTeacherId(e.target.value); setManualCourse(null); }} className="h-9 rounded-lg border border-line bg-card px-3 text-[13px] font-semibold text-ink outline-none">
               {teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           )}
@@ -97,8 +136,8 @@ export default function ClasePage() {
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
           <Link href="/profesor" className="flex w-fit items-center gap-1.5 text-[13px] font-semibold text-subtle transition-colors hover:text-ink"><ArrowLeft className="h-4 w-4" /> Mi día</Link>
-          {teachers.length > 0 && (
-            <select value={currentTeacherId} onChange={(e) => { setCurrentTeacherId(e.target.value); setSelectedId(null); }} className="h-8 rounded-lg border border-line bg-card px-2.5 text-[12px] font-semibold text-ink outline-none">
+          {teachers.length > 0 && !esDocente && (
+            <select value={currentTeacherId} onChange={(e) => { setCurrentTeacherId(e.target.value); setSelectedId(null); setManualCourse(null); }} className="h-8 rounded-lg border border-line bg-card px-2.5 text-[12px] font-semibold text-ink outline-none">
               {teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           )}
@@ -123,12 +162,14 @@ export default function ClasePage() {
       <div className="flex flex-col gap-4 rounded-[18px] p-6 text-white sm:flex-row sm:items-center sm:justify-between" style={{ background: "var(--grad-primary)" }}>
         <div className="flex flex-col gap-2.5">
           <span className="flex w-fit items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-2.5 py-1 text-[9px] font-bold tracking-[0.16em]">
-            {isCurrent ? <><span className="h-1.5 w-1.5 rounded-full bg-white" /> EN CLASE AHORA</> : <><CircleDot className="h-3 w-3" /> CLASE SELECCIONADA</>}
+            {isCurrent && scheduled ? <><span className="h-1.5 w-1.5 rounded-full bg-white" /> EN CLASE AHORA</> : <><CircleDot className="h-3 w-3" /> CLASE SELECCIONADA</>}
           </span>
           <span className="text-[30px] font-extrabold leading-none -tracking-[0.03em]">{effCourse.grado} · {effCourse.materia}</span>
           <div className="flex flex-wrap items-center gap-4 text-white/80">
             <span className="flex items-center gap-1.5 text-xs font-medium"><MapPin className="h-3 w-3" /> Aula {effCourse.aula}</span>
-            <span className="flex items-center gap-1.5 text-xs font-medium"><Clock className="h-3 w-3" /> {fmt(effBlock.start)} — {fmt(effBlock.end)}</span>
+            {effBlock && scheduled && (
+              <span className="flex items-center gap-1.5 text-xs font-medium"><Clock className="h-3 w-3" /> {fmt(effBlock.start)} — {fmt(effBlock.end)}</span>
+            )}
             {teacher && <span className="flex items-center gap-1.5 text-xs font-medium"><CalendarCheck className="h-3 w-3" /> {teacher.name}</span>}
             {remaining !== null && <span className="flex items-center gap-1.5 text-xs font-semibold"><Clock className="h-3 w-3" /> Faltan {remaining}′</span>}
           </div>

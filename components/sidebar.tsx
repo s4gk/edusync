@@ -66,7 +66,7 @@ const ADMIN_GROUPS: NavGroup[] = [
       { label: "Boletines", icon: BookText, href: "/boletines" },
       { label: "Cierre de periodo", icon: Lock, href: "/periodos" },
       { label: "Cierre de año", icon: Award, href: "/cierre" },
-      { label: "Observaciones", icon: MessageSquareWarning, href: "/observaciones", soon: true },
+      { label: "Observaciones", icon: MessageSquareWarning, href: "/observaciones" },
     ],
   },
   {
@@ -83,8 +83,8 @@ const ADMIN_GROUPS: NavGroup[] = [
   {
     title: "OPERACIÓN",
     items: [
-      { label: "Finanzas", icon: Wallet, href: "/finanzas", badge: { text: "12", tone: "primary" } },
-      { label: "Comunicaciones", icon: Mail, href: "/comunicaciones", badge: { text: "3", tone: "muted" }, soon: true },
+      { label: "Finanzas", icon: Wallet, href: "/finanzas" },
+      { label: "Comunicaciones", icon: Mail, href: "/comunicaciones" },
       { label: "Certificados", icon: FileBadge, href: "/certificados" },
       { label: "Protección de datos", icon: ShieldCheck, href: "/proteccion-datos" },
       { label: "Drive", icon: HardDrive, href: "/drive" },

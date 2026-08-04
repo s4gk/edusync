@@ -101,6 +101,10 @@ export class QueryStudentDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  // 200 y no 100: las pantallas que piden el listado completo de un curso o del
+  // colegio (Cursos, Certificados, Observaciones) piden 200, y con el tope en
+  // 100 el backend respondía 400 y la lista salía vacía sin decir por qué.
+  // Igual que el tope de asistencia, que ya era 200.
+  @Max(200)
   limit?: number = 20;
 }

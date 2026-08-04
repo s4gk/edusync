@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { apiGet, apiPost, apiDelete, ApiError } from "@/lib/api";
 import { slotToCourse, type ApiTeacher, type ApiSlot, type Course } from "@/lib/schedule";
+import { useAuth } from "@/components/auth-context";
 
 type Ctx = {
   teachers: ApiTeacher[];
@@ -26,6 +27,8 @@ const ScheduleCtx = createContext<Ctx>({
 });
 
 export function ScheduleProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const esDocente = user?.role === "TEACHER";
   const [teachers, setTeachers] = useState<ApiTeacher[]>([]);
   const [loadingTeachers, setLoadingTeachers] = useState(true);
   const [currentTeacherId, setCurrentTeacherId] = useState("");
@@ -36,13 +39,19 @@ export function ScheduleProvider({ children }: { children: React.ReactNode }) {
     try {
       const ts = await apiGet<ApiTeacher[]>("/schedule/teachers");
       setTeachers(ts);
-      setCurrentTeacherId((prev) => prev || ts.find((t) => t.assignedHours > 0)?.id || ts[0]?.id || "");
+      // Un docente SIEMPRE arranca en sí mismo: antes se elegía "el primero con
+      // horas asignadas", así que al entrar veía la clase de otro profesor y su
+      // propio nombre no aparecía por ningún lado.
+      const propio = esDocente ? ts.find((t) => t.userId === user?.id)?.id : undefined;
+      setCurrentTeacherId(
+        (prev) => propio || prev || ts.find((t) => t.assignedHours > 0)?.id || ts[0]?.id || "",
+      );
     } catch {
       setTeachers([]);
     } finally {
       setLoadingTeachers(false);
     }
-  }, []);
+  }, [esDocente, user?.id]);
 
   useEffect(() => { refreshTeachers(); }, [refreshTeachers]);
 
