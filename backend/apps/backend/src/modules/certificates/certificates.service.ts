@@ -2,6 +2,26 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../prisma/prisma.service';
 
 const SCHOOL = process.env.SCHOOL_NAME || 'Colegio San Mateo';
+
+/**
+ * Encabezado legal del certificado. Antes estaba escrito a mano en la plantilla
+ * ("NIT 900.000.000-0 · Resolución N.° 0000"), así que todo colegio recibía el
+ * NIT de otro y una resolución en ceros — en un documento que la familia lleva
+ * a un banco o a otra institución. Ahora sale de la misma configuración que la
+ * política de datos, y lo que no esté configurado simplemente no se imprime:
+ * mejor un encabezado corto que uno con datos falsos.
+ */
+function encabezadoLegal(): string {
+  const partes = [
+    process.env.SCHOOL_NIT ? `NIT ${process.env.SCHOOL_NIT}` : null,
+    process.env.SCHOOL_DANE ? `Código DANE ${process.env.SCHOOL_DANE}` : null,
+    process.env.SCHOOL_RESOLUTION
+      ? `Aprobado por la Secretaría de Educación · ${process.env.SCHOOL_RESOLUTION}`
+      : null,
+    [process.env.SCHOOL_ADDRESS, process.env.SCHOOL_CITY].filter(Boolean).join(', ') || null,
+  ].filter(Boolean);
+  return partes.join(' · ');
+}
 const MESES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
   'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
@@ -149,7 +169,7 @@ export class CertificatesService {
     </style></head><body><div class="sheet">
       <div class="head">
         <div class="school">${SCHOOL}</div>
-        <div class="sub">NIT 900.000.000-0 · Aprobado por la Secretaría de Educación · Resolución N.° 0000</div>
+        <div class="sub">${encabezadoLegal()}</div>
       </div>
       <h1>${title}</h1>
       ${body}
