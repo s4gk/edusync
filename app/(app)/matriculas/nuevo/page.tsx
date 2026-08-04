@@ -15,8 +15,22 @@ import { AvatarUpload, FileDrop, type UploadedFile } from "@/components/uploads"
 import {
   DOCUMENT_TYPES, GENDERS, BLOOD_TYPES, JORNADAS, STRATA, ETHNICITIES, YES_NO, GRADES,
 } from "@/lib/forms";
+import { ConsentForm } from "@/components/consent-form";
+import { consentCompleto, draftVacio, registrarConsentimiento, type ConsentDraft } from "@/lib/privacy";
 
-const STEPS = ["Identidad", "Contacto", "Salud", "Matrícula", "Acudientes", "Documentos", "Revisar"];
+const STEPS = ["Identidad", "Contacto", "Salud", "Matrícula", "Acudientes", "Documentos", "Autorización", "Revisar"];
+
+/** Menor de edad al día de hoy, según la fecha de nacimiento del formulario. */
+function esMenorDeEdad(iso: string) {
+  if (!iso) return true; // sin fecha aún, se asume menor: es un colegio
+  const n = new Date(iso);
+  if (Number.isNaN(n.getTime())) return true;
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - n.getFullYear();
+  const m = hoy.getMonth() - n.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < n.getDate())) edad--;
+  return edad < 18;
+}
 
 const DOC_CATS = [
   { key: "registro_civil", label: "Registro civil" },
@@ -60,9 +74,26 @@ export default function NuevoEstudiantePage() {
   // documentos
   const [docs, setDocs] = useState<Record<string, UploadedFile[]>>({});
 
+  // autorización de tratamiento de datos (Ley 1581)
+  const [consent, setConsent] = useState<ConsentDraft>(draftVacio());
+  const menor = esMenorDeEdad(birthDate);
+
+  // Al llegar al paso de autorización se propone como firmante al acudiente
+  // principal ya vinculado: en un menor es justamente quien debe firmar. Solo
+  // se propone —el nombre sigue siendo editable— y nunca pisa lo ya escrito.
+  useEffect(() => {
+    if (step !== 6 || consent.signedByName) return;
+    const principal = linked.find((l) => l.isPrimary) ?? linked[0];
+    if (!principal) return;
+    const rol = ["Madre", "Padre", "Acudiente autorizado"].includes(principal.relation)
+      ? principal.relation
+      : "Representante legal";
+    setConsent((c) => ({ ...c, signedByName: principal.name, signedByRole: rol }));
+  }, [step, linked, consent.signedByName]);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ name: string; password?: string } | null>(null);
+  const [done, setDone] = useState<{ name: string; password?: string; userId: string; consentError?: string | null } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -95,8 +126,12 @@ export default function NuevoEstudiantePage() {
     if (step === 0) return p.documentType && documentId.trim() && firstName.trim() && lastName.trim() && birthDate;
     if (step === 1) return email.trim() && mobile.trim();
     if (step === 3) return enrollmentCode.trim();
+    // Sin autorización no se avanza. Es lo único que la ley no deja "completar
+    // después": recoger los datos primero y pedir permiso luego es justamente
+    // lo que prohíbe.
+    if (step === 6) return consentCompleto(consent);
     return true;
-  }, [step, p.documentType, documentId, firstName, lastName, birthDate, email, mobile, enrollmentCode]);
+  }, [step, p.documentType, documentId, firstName, lastName, birthDate, email, mobile, enrollmentCode, consent]);
 
   const toggleLink = (g: GuardianHit) => {
     setLinked((prev) => prev.some((l) => l.guardianId === g.id)
@@ -132,7 +167,16 @@ export default function NuevoEstudiantePage() {
       for (const l of linked) {
         await apiPost(`/students/${studentRes.id}/guardians`, { guardianId: l.guardianId, isPrimary: l.isPrimary });
       }
-      setDone({ name: `${firstName.trim()} ${lastName.trim()}`, password: userRes.temporaryPassword });
+      // La autorización va al final y en su propio try: si falla, la matrícula
+      // ya quedó hecha y perderla sería peor que quedarse sin la firma —
+      // la pantalla de éxito ofrece reintentar con el mismo titular.
+      let consentError: string | null = null;
+      try {
+        await registrarConsentimiento(userRes.user.id, consent, "matricula-web");
+      } catch (e) {
+        consentError = e instanceof Error ? e.message : "No se pudo registrar la autorización.";
+      }
+      setDone({ name: `${firstName.trim()} ${lastName.trim()}`, password: userRes.temporaryPassword, userId: userRes.user.id, consentError });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo crear la matrícula.");
     } finally { setSaving(false); }
@@ -153,6 +197,25 @@ export default function NuevoEstudiantePage() {
               <code className="text-[13px] font-bold text-ink">{done.password}</code>
               <button onClick={() => navigator.clipboard?.writeText(done.password!)} className="text-subtle hover:text-ink"><Copy className="h-4 w-4" /></button>
             </div>
+          </div>
+        )}
+        {done.consentError && (
+          <div className="flex w-full flex-col gap-2 rounded-xl bg-s-warning p-4 text-left text-[12px] leading-relaxed text-s-warning-fg">
+            <span className="flex items-center gap-1.5 font-semibold"><TriangleAlert className="h-3.5 w-3.5" /> La autorización de datos no quedó registrada</span>
+            <span>{done.consentError}</span>
+            <button
+              onClick={async () => {
+                try {
+                  await registrarConsentimiento(done.userId, consent, "matricula-web");
+                  setDone({ ...done, consentError: null });
+                } catch (e) {
+                  setDone({ ...done, consentError: e instanceof Error ? e.message : "No se pudo registrar la autorización." });
+                }
+              }}
+              className="flex h-8 w-fit items-center rounded-lg bg-card px-3 text-[12px] font-semibold text-ink hover:opacity-90"
+            >
+              Reintentar
+            </button>
           </div>
         )}
         <div className="flex gap-2">
@@ -325,8 +388,19 @@ export default function NuevoEstudiantePage() {
           </div>
         )}
 
-        {/* 6 — REVISAR */}
+        {/* 6 — AUTORIZACIÓN DE TRATAMIENTO DE DATOS */}
         {step === 6 && (
+          <ConsentForm
+            value={consent}
+            onChange={setConsent}
+            isMinor={menor}
+            firmaTercero={menor}
+            titular={`${firstName} ${lastName}`.trim() || undefined}
+          />
+        )}
+
+        {/* 7 — REVISAR */}
+        {step === 7 && (
           <div className="flex flex-col gap-3 text-[13px]">
             <Row label="Estudiante" value={`${firstName} ${p.secondName ?? ""} ${lastName} ${p.secondLastName ?? ""}`.replace(/\s+/g, " ").trim()} />
             <Row label="Documento" value={`${p.documentType ?? ""} ${documentId}`.trim()} />
@@ -337,6 +411,10 @@ export default function NuevoEstudiantePage() {
             <Row label="Grupo" value={groups.find((g) => g.id === gradeGroupId)?.name ?? "Sin asignar"} />
             <Row label="Acudientes" value={linked.length ? linked.map((l) => l.name).join(", ") : "Ninguno"} />
             <Row label="Documentos" value={`${allDocs.length} archivo(s)`} />
+            <Row
+              label="Autorización de datos"
+              value={`Firma ${consent.signedByName} (${consent.signedByRole}) · ${consent.purposes.length} finalidad(es)${consent.sensitiveDataAccepted ? " · sensibles" : ""}${consent.imageRightsAccepted ? " · imagen" : ""}`}
+            />
           </div>
         )}
 

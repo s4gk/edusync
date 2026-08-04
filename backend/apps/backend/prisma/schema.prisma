@@ -123,8 +123,58 @@ model User {
   driveFolders     DriveFolder[]    @relation("DriveFolderCreator")
   driveFiles       DriveFile[]      @relation("DriveFileUploader")
   reminders        Reminder[]
+  dataConsents     DataConsent[]    @relation("ConsentSubject")
+  signedConsents   DataConsent[]    @relation("ConsentSigner")
 
   @@map("users")
+}
+
+/// Autorización de tratamiento de datos personales (Ley 1581 de 2012 y
+/// Decreto 1377 de 2013). La ley no exige "haber pedido permiso" sino poder
+/// PROBARLO después, así que esto guarda la evidencia: quién autorizó, cuándo,
+/// desde dónde y sobre QUÉ TEXTO — por eso `policyVersion`: si mañana cambia la
+/// política, las autorizaciones viejas siguen apuntando al texto que la familia
+/// realmente leyó, y no al que las reemplazó.
+///
+/// Nunca se borra ni se sobrescribe: revocar escribe `revokedAt`. Un registro
+/// borrado es exactamente la prueba que la Superintendencia pide.
+model DataConsent {
+  id            String   @id @default(cuid())
+  /// Titular de los datos. En un estudiante menor, el titular es el MENOR
+  /// aunque quien firme sea el acudiente.
+  subjectUserId String
+  policyVersion String
+  /// Finalidades aceptadas (académica, convivencia, salud, comunicaciones…).
+  purposes      String[]
+
+  /// Los datos sensibles (salud, discapacidad, etnia, víctima del conflicto)
+  /// y el uso de imagen se aceptan APARTE y son opcionales: la ley prohíbe
+  /// condicionar la matrícula a que la familia los entregue.
+  sensitiveDataAccepted Boolean @default(false)
+  imageRightsAccepted   Boolean @default(false)
+
+  /// Autorización de un menor de edad: la da el representante legal.
+  isMinor          Boolean @default(false)
+  signedByUserId   String?
+  signedByName     String
+  signedByRole     String
+  signedByDocument String?
+  /// Por dónde se firmó (matricula-web, acudiente-web, papel-digitalizado…).
+  /// "papel" importa: si el colegio recibe autorizaciones firmadas a mano, la
+  /// evidencia sigue siendo este registro más el soporte escaneado.
+  channel   String
+  ipAddress String?
+  userAgent String?
+
+  acceptedAt    DateTime  @default(now())
+  revokedAt     DateTime?
+  revokedReason String?
+
+  subject  User  @relation("ConsentSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  signedBy User? @relation("ConsentSigner", fields: [signedByUserId], references: [id])
+
+  @@index([subjectUserId, acceptedAt])
+  @@map("data_consents")
 }
 
 // Recordatorios personales del usuario (ej. el docente en Mi día).

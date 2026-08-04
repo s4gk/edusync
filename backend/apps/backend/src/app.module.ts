@@ -30,6 +30,7 @@ import { DriveModule } from './modules/drive/drive.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
 import { MailModule } from './modules/mail/mail.module';
 import { ChatbotModule } from './modules/chatbot/chatbot.module';
+import { PrivacyModule } from './modules/privacy/privacy.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { ChatbotModule } from './modules/chatbot/chatbot.module';
     DriveModule,
     RemindersModule,
     ChatbotModule,
+    PrivacyModule,
   ],
   // Sin esto el ThrottlerModule de arriba era decorativo: estaba configurado
   // pero ningún guard lo aplicaba, así que la API no tenía ningún límite.

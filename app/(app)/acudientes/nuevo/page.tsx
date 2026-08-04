@@ -11,8 +11,10 @@ import { TextField, SelectField, SectionTitle } from "@/components/form-fields";
 import { Stepper } from "@/components/stepper";
 import { AvatarUpload, FileDrop, type UploadedFile } from "@/components/uploads";
 import { DOCUMENT_TYPES, GENDERS, BLOOD_TYPES, EDUCATION_LEVELS, YES_NO } from "@/lib/forms";
+import { ConsentForm } from "@/components/consent-form";
+import { consentCompleto, draftVacio, registrarConsentimiento, type ConsentDraft } from "@/lib/privacy";
 
-const STEPS = ["Identidad", "Contacto", "Parentesco", "Estudiantes", "Documentos", "Revisar"];
+const STEPS = ["Identidad", "Contacto", "Parentesco", "Estudiantes", "Documentos", "Autorización", "Revisar"];
 const RELATIONS = ["Madre", "Padre", "Abuelo/a", "Tío/a", "Hermano/a", "Tutor legal", "Otro"];
 const DOC_CATS = [
   { key: "documento_identidad", label: "Documento de identidad" },
@@ -44,9 +46,13 @@ export default function NuevoAcudientePage() {
 
   const [docs, setDocs] = useState<Record<string, UploadedFile[]>>({});
 
+  // autorización de tratamiento de datos (Ley 1581). Aquí el acudiente es el
+  // titular de sus propios datos: firma por sí mismo, no por un tercero.
+  const [consent, setConsent] = useState<ConsentDraft>(draftVacio());
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ name: string; password?: string } | null>(null);
+  const [done, setDone] = useState<{ name: string; password?: string; userId: string; consentError?: string | null } | null>(null);
 
   useEffect(() => {
     if (step !== 3) return;
@@ -70,8 +76,24 @@ export default function NuevoAcudientePage() {
     if (step === 0) return p.documentType && p.documentId && firstName.trim() && lastName.trim() && p.birthDate;
     if (step === 1) return email.trim() && mobile.trim();
     if (step === 2) return relation;
+    // Sin autorización no se avanza: recoger los datos primero y pedir el
+    // permiso después es justo lo que la ley no permite.
+    if (step === 5) return consentCompleto(consent);
     return true;
-  }, [step, p.documentType, p.documentId, p.birthDate, firstName, lastName, email, mobile, relation]);
+  }, [step, p.documentType, p.documentId, p.birthDate, firstName, lastName, email, mobile, relation, consent]);
+
+  // El acudiente firma por sí mismo: se propone su propio nombre como firmante.
+  useEffect(() => {
+    if (step !== 5 || consent.signedByName) return;
+    const nombre = `${firstName.trim()} ${lastName.trim()}`.trim();
+    if (!nombre) return;
+    setConsent((c) => ({
+      ...c,
+      signedByName: nombre,
+      signedByRole: c.signedByRole || "Titular de los datos",
+      signedByDocument: c.signedByDocument || (p.documentId ?? ""),
+    }));
+  }, [step, firstName, lastName, p.documentId, consent.signedByName]);
 
   const toggleLink = (s: StudentHit) => {
     setLinked((prev) => prev.some((l) => l.studentId === s.id)
@@ -85,7 +107,7 @@ export default function NuevoAcudientePage() {
     setSaving(true);
     try {
       const profile = Object.fromEntries(Object.entries(p).filter(([, v]) => v && v.trim()));
-      const res = await apiPost<{ temporaryPassword?: string }>("/guardians", {
+      const res = await apiPost<{ guardian: { userId: string }; temporaryPassword?: string }>("/guardians", {
         email: email.trim(),
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -96,7 +118,15 @@ export default function NuevoAcudientePage() {
         ...(allDocs.length ? { documents: allDocs } : {}),
         ...(linked.length ? { students: linked.map((l) => ({ studentId: l.studentId, isPrimary: l.isPrimary })) } : {}),
       });
-      setDone({ name: `${firstName.trim()} ${lastName.trim()}`, password: res.temporaryPassword });
+      // Igual que en matrículas: la autorización va en su propio try para no
+      // perder el registro si falla; la pantalla de éxito deja reintentar.
+      let consentError: string | null = null;
+      try {
+        await registrarConsentimiento(res.guardian.userId, consent, "acudiente-web");
+      } catch (e) {
+        consentError = e instanceof Error ? e.message : "No se pudo registrar la autorización.";
+      }
+      setDone({ name: `${firstName.trim()} ${lastName.trim()}`, password: res.temporaryPassword, userId: res.guardian.userId, consentError });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo registrar el acudiente.");
     } finally { setSaving(false); }
@@ -117,6 +147,25 @@ export default function NuevoAcudientePage() {
               <code className="text-[13px] font-bold text-ink">{done.password}</code>
               <button onClick={() => navigator.clipboard?.writeText(done.password!)} className="text-subtle hover:text-ink"><Copy className="h-4 w-4" /></button>
             </div>
+          </div>
+        )}
+        {done.consentError && (
+          <div className="flex w-full flex-col gap-2 rounded-xl bg-s-warning p-4 text-left text-[12px] leading-relaxed text-s-warning-fg">
+            <span className="flex items-center gap-1.5 font-semibold"><TriangleAlert className="h-3.5 w-3.5" /> La autorización de datos no quedó registrada</span>
+            <span>{done.consentError}</span>
+            <button
+              onClick={async () => {
+                try {
+                  await registrarConsentimiento(done.userId, consent, "acudiente-web");
+                  setDone({ ...done, consentError: null });
+                } catch (e) {
+                  setDone({ ...done, consentError: e instanceof Error ? e.message : "No se pudo registrar la autorización." });
+                }
+              }}
+              className="flex h-8 w-fit items-center rounded-lg bg-card px-3 text-[12px] font-semibold text-ink hover:opacity-90"
+            >
+              Reintentar
+            </button>
           </div>
         )}
         <div className="flex gap-2">
@@ -261,7 +310,16 @@ export default function NuevoAcudientePage() {
           </div>
         )}
 
+        {/* 5 — AUTORIZACIÓN DE TRATAMIENTO DE DATOS */}
         {step === 5 && (
+          <ConsentForm
+            value={consent}
+            onChange={setConsent}
+            titular={`${firstName} ${lastName}`.trim() || undefined}
+          />
+        )}
+
+        {step === 6 && (
           <div className="flex flex-col gap-3 text-[13px]">
             <Row label="Acudiente" value={`${firstName} ${lastName}`} />
             <Row label="Documento" value={`${p.documentType ?? ""} ${p.documentId ?? ""}`.trim()} />
@@ -270,6 +328,10 @@ export default function NuevoAcudientePage() {
             <Row label="Ocupación" value={p.occupation || "—"} />
             <Row label="Estudiantes" value={linked.length ? linked.map((l) => l.name).join(", ") : "Ninguno"} />
             <Row label="Documentos" value={`${allDocs.length} archivo(s)`} />
+            <Row
+              label="Autorización de datos"
+              value={`Firma ${consent.signedByName} (${consent.signedByRole}) · ${consent.purposes.length} finalidad(es)${consent.sensitiveDataAccepted ? " · sensibles" : ""}${consent.imageRightsAccepted ? " · imagen" : ""}`}
+            />
           </div>
         )}
 

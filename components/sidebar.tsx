@@ -29,6 +29,7 @@ import {
   Bot,
   ShieldAlert,
   type LucideIcon,
+  ShieldCheck,
 } from "lucide-react";
 import { useSidebar } from "@/components/sidebar-context";
 import { ProfileMenu } from "@/components/profile-menu";
@@ -84,6 +85,7 @@ const ADMIN_GROUPS: NavGroup[] = [
       { label: "Finanzas", icon: Wallet, href: "/finanzas", badge: { text: "12", tone: "primary" } },
       { label: "Comunicaciones", icon: Mail, href: "/comunicaciones", badge: { text: "3", tone: "muted" }, soon: true },
       { label: "Certificados", icon: FileBadge, href: "/certificados" },
+      { label: "Protección de datos", icon: ShieldCheck, href: "/proteccion-datos" },
       { label: "Drive", icon: HardDrive, href: "/drive" },
       { label: "Asistente WhatsApp", icon: Bot, href: "/chatbot" },
       { label: "Configuración", icon: Settings, href: "/configuracion" },
