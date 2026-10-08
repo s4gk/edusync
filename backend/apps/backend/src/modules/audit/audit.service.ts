@@ -1,13 +1,46 @@
 import { Injectable } from '@nestjs/common';
+import { IsDateString, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PrismaService } from '../../prisma/prisma.service';
 
+/**
+ * OJO: los decoradores no son decorativos. El ValidationPipe global corre con
+ * `whitelist + forbidNonWhitelisted`, así que una propiedad sin decorador no
+ * está en la lista blanca y el pipe rechaza la petición. Sin ellos este DTO
+ * hacía que GET /audit respondiera 400 SIEMPRE, incluso sin query.
+ */
 export class QueryAuditDto {
+  @IsOptional()
+  @IsString()
   userId?: string;
+
+  @IsOptional()
+  @IsString()
   action?: string;
+
+  @IsOptional()
+  @IsString()
   entity?: string;
+
+  @IsOptional()
+  @IsDateString()
   from?: string;
+
+  @IsOptional()
+  @IsDateString()
   to?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
   limit?: number;
 }
 

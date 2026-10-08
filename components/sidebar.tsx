@@ -28,6 +28,8 @@ import {
   HardDrive,
   Bot,
   ShieldAlert,
+  BarChart3,
+  ScrollText,
   type LucideIcon,
   ShieldCheck,
 } from "lucide-react";
@@ -42,6 +44,9 @@ type NavItem = {
   href: string;
   badge?: { text: string; tone: "primary" | "muted" };
   soon?: boolean;
+  /** Si se indica, el ítem solo se muestra a estos roles (el backend lo
+   *  vuelve a validar; esto evita mostrar enlaces que darían 403). */
+  roles?: string[];
 };
 
 type NavGroup = { title: string; items: NavItem[] };
@@ -83,12 +88,14 @@ const ADMIN_GROUPS: NavGroup[] = [
   {
     title: "OPERACIÓN",
     items: [
+      { label: "Reportes", icon: BarChart3, href: "/reportes" },
       { label: "Finanzas", icon: Wallet, href: "/finanzas" },
       { label: "Comunicaciones", icon: Mail, href: "/comunicaciones" },
       { label: "Certificados", icon: FileBadge, href: "/certificados" },
       { label: "Protección de datos", icon: ShieldCheck, href: "/proteccion-datos" },
       { label: "Drive", icon: HardDrive, href: "/drive" },
       { label: "Asistente WhatsApp", icon: Bot, href: "/chatbot" },
+      { label: "Trazabilidad", icon: ScrollText, href: "/auditoria", roles: ["SUPER_ADMIN", "RECTOR"] },
       { label: "Configuración", icon: Settings, href: "/configuracion" },
     ],
   },
@@ -168,7 +175,9 @@ export function Sidebar() {
   const schoolName = useSchoolName("Colegio San Mateo");
   const isTeacher = user?.role === "TEACHER";
   const TOP = isTeacher ? TEACHER_TOP : ADMIN_TOP;
-  const GROUPS = isTeacher ? TEACHER_GROUPS : ADMIN_GROUPS;
+  const GROUPS = (isTeacher ? TEACHER_GROUPS : ADMIN_GROUPS)
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.roles || (user && i.roles.includes(user.role))) }))
+    .filter((g) => g.items.length > 0);
   const isActive = (href: string) =>
     pathname === href || (href === "/dashboard" && pathname === "/");
 

@@ -19,7 +19,6 @@ import {
   Upload,
   Newspaper,
   BarChart3,
-  CircleDashed,
   Sparkles,
   IdCard,
   LineChart,
@@ -28,6 +27,7 @@ import {
   HardDrive,
   type LucideIcon,
   ShieldCheck,
+  ScrollText,
 } from "lucide-react";
 
 export type Route = {
@@ -61,13 +61,13 @@ export const ROUTES: Route[] = [
   { label: "Protección de datos", href: "/proteccion-datos", group: "Operación", icon: ShieldCheck, keywords: "habeas data ley 1581 autorizacion tratamiento datos personales privacidad consentimiento sic" },
   { label: "Asistente WhatsApp", href: "/chatbot", group: "Operación", icon: Bot, keywords: "chatbot bot whatsapp agente ia acudientes mensajes" },
   { label: "Drive", href: "/drive", group: "Operación", icon: HardDrive, keywords: "archivos carpetas recursos compartido subir documentos" },
-  { label: "Configuración", href: "/configuracion", group: "Operación", icon: Settings, keywords: "ajustes perfil cuenta" },
+  { label: "Trazabilidad", href: "/auditoria", group: "Operación", icon: ScrollText, keywords: "auditoria log registro quien cambio historial bitacora seguimiento" },
+  { label: "Configuración", href: "/configuracion", group: "Operación", icon: Settings, keywords: "ajustes perfil cuenta escala valoracion año lectivo periodos datos institucion nit resolucion rector" },
 ];
 
 /** Vistas especiales (pantalla completa, sin sidebar). */
 export const EXTRA_ROUTES: Route[] = [
   { label: "Vista Profesor", href: "/profesor", group: "Vistas", icon: GraduationCap, keywords: "docente mi dia" },
-  { label: "Estados del sistema", href: "/estados", group: "Vistas", icon: CircleDashed, keywords: "vacio error 404" },
   { label: "Daily — Morning Edition", href: "/daily", group: "Vistas", icon: Newspaper, keywords: "briefing portada" },
   { label: "Family Recap", href: "/recap", group: "Vistas", icon: Sparkles, keywords: "boletin editorial camila" },
   { label: "Coach (IA)", href: "/coach", group: "Vistas", icon: Sparkles, keywords: "chat ia familiar" },
