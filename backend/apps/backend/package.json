@@ -28,7 +28,7 @@
     "@nestjs/throttler": "^6.3.0",
     "@nestjs/websockets": "^10.4.15",
     "@prisma/client": "^6.3.1",
-    "@s4gk/wa-agent": "file:/home/dev/wa-agent/s4gk-wa-agent-1.2.0.tgz",
+    "@s4gk/wa-agent": "file:/home/dev/wa-agent/s4gk-wa-agent-1.12.1.tgz",
     "@school/shared": "workspace:*",
     "bcrypt": "^5.1.1",
     "bull": "^4.16.5",
