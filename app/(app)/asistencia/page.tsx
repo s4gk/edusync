@@ -1,262 +1,255 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ChevronDown,
-  QrCode,
-  CircleCheck,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  TrendingUp,
-  TrendingDown,
-  Clock3,
-  FileCheck,
-  LayoutGrid,
-  List,
-  CheckCheck,
-  Eraser,
-  SlidersHorizontal,
+  Calendar, TrendingUp, TrendingDown, Clock3, FileCheck, Loader2, TriangleAlert, ClipboardList, ShieldAlert,
+  MessageSquare, ListChecks, DoorOpen,
 } from "lucide-react";
+import { apiGet } from "@/lib/api";
+import { getCurrentYear, getGroups, getSubjects, initials, type Group, type Subject } from "@/lib/academic";
+import { TakeTable } from "@/components/attendance-table";
 
-/* ---------------- datos ---------------- */
-
-type Tone = "success" | "error" | "warning" | "info";
-
-const TONE: Record<Tone, { chip: string; bar: string; icon: string }> = {
-  success: { chip: "bg-s-success text-s-success-fg", bar: "bg-emerald-400", icon: "text-emerald-600" },
-  error: { chip: "bg-s-error text-s-error-fg", bar: "bg-rose-400", icon: "text-rose-600" },
-  warning: { chip: "bg-s-warning text-s-warning-fg", bar: "bg-amber-400", icon: "text-amber-600" },
-  info: { chip: "bg-s-info text-s-info-fg", bar: "bg-blue-400", icon: "text-blue-600" },
+type AttRecord = {
+  id: string; studentId: string; date: string; status: "PRESENT" | "ABSENT" | "LATE" | "EXCUSED" | "PERMISSION" | "EVASION";
+  notes?: string | null;
+  student: { user: { firstName: string; lastName: string } };
 };
+type Paginated<T> = { data: T[]; meta: { total: number } };
+type ReportRow = { studentId: string; name: string; total: number; present: number; absent: number; late: number; excused: number; evasion?: number; percentage: number; atRisk: boolean };
+type Report = { subject: string; group: string; students: ReportRow[] };
 
-const DAYS = [
-  { d: "L", n: "20", pct: "98%" },
-  { d: "M", n: "21", pct: "96%" },
-  { d: "M", n: "22", pct: "94%" },
-  { d: "J", n: "23", today: true },
-  { d: "V", n: "24" },
-  { d: "S", n: "25", weekend: true },
-  { d: "D", n: "26", weekend: true },
-];
-
-const STATS = [
-  { label: "Presentes", value: "28", foot: "87,5%", tone: "success" as Tone, icon: TrendingUp, bars: [10, 14, 12, 16, 18] },
-  { label: "Ausentes", value: "2", foot: "6,3%", tone: "error" as Tone, icon: TrendingDown, bars: [16, 12, 14, 8, 6] },
-  { label: "Tardanzas", value: "1", foot: "3,1%", tone: "warning" as Tone, icon: Clock3, bars: [8, 10, 6, 9, 7] },
-  { label: "Justificadas", value: "1", foot: "3,1%", tone: "info" as Tone, icon: FileCheck, bars: [6, 8, 7, 9, 8] },
-];
-
-const CLASSES = [
-  { label: "Matemáticas · 1ª hora", active: true },
-  { label: "Lengua · 2ª hora" },
-  { label: "Ciencias · 3ª hora" },
-  { label: "Artes · 4ª hora" },
-  { label: "Educación física · 5ª hora" },
-];
-
-type Estado = "P" | "A" | "T" | "J";
-
-const ESTADO: Record<Estado, { chip: string }> = {
-  P: { chip: "bg-s-success text-s-success-fg" },
-  A: { chip: "bg-s-error text-s-error-fg" },
-  T: { chip: "bg-s-warning text-s-warning-fg" },
-  J: { chip: "bg-s-info text-s-info-fg" },
+const ESTADO: Record<string, { letra: string; chip: string }> = {
+  PRESENT: { letra: "P", chip: "bg-s-success text-s-success-fg" },
+  ABSENT: { letra: "A", chip: "bg-s-error text-s-error-fg" },
+  LATE: { letra: "T", chip: "bg-s-warning text-s-warning-fg" },
+  EXCUSED: { letra: "J", chip: "bg-s-info text-s-info-fg" },
+  PERMISSION: { letra: "Pe", chip: "bg-surface text-ink" },
+  EVASION: { letra: "Ev", chip: "bg-orange-100 text-orange-700" },
 };
 
 const AVATARS = [
-  "bg-blue-100 text-blue-700",
-  "bg-amber-100 text-amber-700",
-  "bg-pink-100 text-pink-700",
-  "bg-emerald-100 text-emerald-700",
-  "bg-violet-100 text-violet-700",
-  "bg-teal-100 text-teal-700",
-  "bg-orange-100 text-orange-700",
-  "bg-sky-100 text-sky-700",
+  "bg-blue-100 text-blue-700", "bg-amber-100 text-amber-700", "bg-pink-100 text-pink-700", "bg-emerald-100 text-emerald-700",
+  "bg-violet-100 text-violet-700", "bg-teal-100 text-teal-700", "bg-orange-100 text-orange-700", "bg-sky-100 text-sky-700",
 ];
-
-const ROSTER: { name: string; estado: Estado }[] = [
-  { name: "Mariana A.", estado: "P" }, { name: "Juan B.", estado: "P" }, { name: "Lucía R.", estado: "P" }, { name: "Diego P.", estado: "P" }, { name: "Ana S.", estado: "P" },
-  { name: "Sofía H.", estado: "A" }, { name: "Mateo G.", estado: "P" }, { name: "Valeria C.", estado: "P" }, { name: "Tomás Q.", estado: "P" }, { name: "Camila D.", estado: "P" },
-  { name: "Samuel L.", estado: "P" }, { name: "Isabela M.", estado: "P" }, { name: "Andrés T.", estado: "T" }, { name: "Daniela V.", estado: "P" }, { name: "Nicolás F.", estado: "P" },
-  { name: "Laura J.", estado: "P" }, { name: "Felipe O.", estado: "P" }, { name: "Gabriela N.", estado: "P" }, { name: "Sebastián R.", estado: "P" }, { name: "Antonia M.", estado: "P" },
-  { name: "David E.", estado: "P" }, { name: "Paula Z.", estado: "P" }, { name: "Emilio C.", estado: "A" }, { name: "Sara B.", estado: "P" }, { name: "Martín G.", estado: "P" },
-  { name: "Valentina P.", estado: "J" }, { name: "Pablo R.", estado: "P" }, { name: "Renata S.", estado: "P" }, { name: "Julián A.", estado: "P" }, { name: "Salomé D.", estado: "P" },
-  { name: "Esteban C.", estado: "P" }, { name: "Manuela V.", estado: "P" },
-];
-
-function initials(name: string) {
-  const parts = name.replace(".", "").split(" ");
-  return (parts[0][0] + (parts[1]?.[0] ?? "")).toUpperCase();
-}
-
-/* ---------------- página ---------------- */
-
+const dayShort = (iso: string) => {
+  const d = new Date(iso);
+  return { d: ["D", "L", "M", "M", "J", "V", "S"][d.getUTCDay()], n: String(d.getUTCDate()), key: iso.slice(0, 10) };
+};
 export default function AsistenciaPage() {
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [groupId, setGroupId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+
+  const [records, setRecords] = useState<AttRecord[]>([]);
+  const [report, setReport] = useState<Report | null>(null);
+  const [activeDate, setActiveDate] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [mode, setMode] = useState<"take" | "view">("take");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const year = await getCurrentYear();
+        if (!year) throw new Error("Sin año lectivo");
+        const gs = await getGroups(year.id);
+        setGroups(gs);
+        if (gs[0]) setGroupId(gs[0].id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error de contexto.");
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!groupId) return;
+    (async () => {
+      const subs = await getSubjects(groupId);
+      setSubjects(subs);
+      setSubjectId(subs[0]?.id ?? "");
+    })();
+  }, [groupId]);
+
+  const load = useCallback(async () => {
+    if (!subjectId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [recs, rep] = await Promise.all([
+        apiGet<Paginated<AttRecord>>(`/attendance?subjectId=${subjectId}&limit=200`),
+        apiGet<Report>(`/attendance/subject/${subjectId}/report`),
+      ]);
+      setRecords(recs.data);
+      setReport(rep);
+      const dates = [...new Set(recs.data.map((r) => r.date.slice(0, 10)))].sort();
+      setActiveDate(dates[dates.length - 1] ?? "");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar la asistencia.");
+      setRecords([]); setReport(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [subjectId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const dates = useMemo(() => [...new Set(records.map((r) => r.date.slice(0, 10)))].sort(), [records]);
+  const dayRecords = useMemo(() => records.filter((r) => r.date.slice(0, 10) === activeDate), [records, activeDate]);
+
+  const dayStats = useMemo(() => {
+    const c = { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0, PERMISSION: 0, EVASION: 0 } as Record<string, number>;
+    dayRecords.forEach((r) => { c[r.status]++; });
+    const total = dayRecords.length || 1;
+    return [
+      { label: "Presentes", value: c.PRESENT, pct: Math.round((c.PRESENT / total) * 100), icon: TrendingUp, color: "text-emerald-600", bar: "bg-emerald-400" },
+      { label: "Ausentes", value: c.ABSENT, pct: Math.round((c.ABSENT / total) * 100), icon: TrendingDown, color: "text-rose-600", bar: "bg-rose-400" },
+      { label: "Evasiones", value: c.EVASION, pct: Math.round((c.EVASION / total) * 100), icon: DoorOpen, color: "text-orange-600", bar: "bg-orange-400" },
+      { label: "Tardanzas", value: c.LATE, pct: Math.round((c.LATE / total) * 100), icon: Clock3, color: "text-amber-600", bar: "bg-amber-400" },
+      { label: "Justificadas", value: c.EXCUSED, pct: Math.round((c.EXCUSED / total) * 100), icon: FileCheck, color: "text-blue-600", bar: "bg-blue-400" },
+    ];
+  }, [dayRecords]);
+
+  const subjectName = subjects.find((s) => s.id === subjectId)?.name ?? "";
+  const groupName = groups.find((g) => g.id === groupId)?.name ?? "";
+  const atRisk = report?.students.filter((s) => s.atRisk) ?? [];
+
   return (
-    <div className="flex flex-col gap-3.5 px-7 py-5">
-      {/* ====== header ====== */}
+    <div className="flex flex-col gap-4 px-7 py-5">
+      {/* header */}
       <div className="flex items-end justify-between gap-6">
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-bold tracking-[0.18em] text-primary">OPERACIONES</span>
-          <h1 className="text-[28px] font-bold text-ink">Asistencia diaria</h1>
-          <p className="text-[13px] text-subtle">Jueves 23 de mayo · Sesión de la mañana · 32 estudiantes</p>
+          <h1 className="text-[28px] font-bold text-ink">Asistencia</h1>
+          <p className="text-[13px] text-subtle">{subjectName ? `${subjectName} · ${groupName} · ${records.length} registros` : "Selecciona grupo y materia"}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex h-9 items-center gap-2 rounded-full bg-primary px-3.5 text-xs font-semibold text-white">
-            Hoy <span className="opacity-80">23 may</span>
-            <ChevronDown className="h-3 w-3" />
-          </button>
-          <button className="flex h-9 items-center gap-2 rounded-[10px] border border-line px-3.5 text-xs font-semibold text-ink transition-colors hover:bg-surface">
-            <QrCode className="h-3.5 w-3.5" />
-            Importar lectores QR
-          </button>
-          <button className="flex h-9 items-center gap-2 rounded-[10px] bg-primary px-3.5 text-xs font-semibold text-white transition-opacity hover:opacity-90">
-            <CircleCheck className="h-3.5 w-3.5" />
-            Cerrar lista
-          </button>
+          <label className="flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-1.5 text-xs">
+            <span className="font-medium text-subtle">Grado</span>
+            <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="bg-transparent text-[13px] font-semibold text-ink outline-none">
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-1.5 text-xs">
+            <span className="font-medium text-subtle">Materia</span>
+            <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className="bg-transparent text-[13px] font-semibold text-ink outline-none">
+              {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </label>
         </div>
       </div>
 
-      {/* ====== date strip ====== */}
-      <div className="flex items-center gap-3.5 rounded-2xl border border-line bg-card px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface text-ink">
-            <Calendar className="h-3.5 w-3.5" />
-          </span>
-          <div className="flex flex-col">
-            <span className="text-xs font-semibold text-ink">Semana 21</span>
-            <span className="text-[10px] text-subtle">19 – 25 mayo</span>
-          </div>
-        </div>
-        <span className="h-8 w-px bg-line" />
-        <div className="flex flex-1 gap-2">
-          {DAYS.map((day) => (
-            <div
-              key={day.n}
-              className={`flex h-16 w-14 flex-col items-center justify-center gap-0.5 rounded-xl ${
-                day.today
-                  ? "bg-primary text-white"
-                  : day.weekend
-                  ? "bg-surface"
-                  : "border border-line bg-card"
-              }`}
-            >
-              <span className={`text-[10px] font-medium ${day.today ? "text-white/85" : "text-subtle"}`}>{day.d}</span>
-              <span className={`text-base font-bold ${day.today ? "text-white" : day.weekend ? "text-subtle" : "text-ink"}`}>{day.n}</span>
-              {day.today ? (
-                <span className="text-[9px] font-semibold text-white/85">Hoy</span>
-              ) : day.pct ? (
-                <span className="text-[9px] font-semibold text-emerald-600">{day.pct}</span>
-              ) : null}
+      {/* selector de modo */}
+      <div className="flex w-fit items-center gap-1 rounded-xl border border-line bg-surface p-1">
+        {([["take", "Tomar asistencia", ListChecks], ["view", "Consultar", Calendar]] as const).map(([m, label, Icon]) => (
+          <button key={m} onClick={() => setMode(m)}
+            className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${mode === m ? "bg-card text-ink shadow-sm" : "text-subtle hover:text-ink"}`}>
+            <Icon className="h-3.5 w-3.5" /> {label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-20 text-sm text-subtle"><Loader2 className="h-4 w-4 animate-spin" /> Cargando asistencia…</div>
+      ) : error ? (
+        <div className="flex items-center justify-center gap-2 py-20 text-sm text-s-error-fg"><TriangleAlert className="h-4 w-4" /> {error}</div>
+      ) : mode === "take" ? (
+        <TakeTable
+          subjectId={subjectId}
+          roster={report?.students ?? []}
+          records={records}
+          onSaved={load}
+        />
+      ) : records.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-20 text-center text-sm text-subtle"><ClipboardList className="h-6 w-6 text-muted" /> Sin registros de asistencia para esta materia.</div>
+      ) : (
+        <>
+          {/* date strip */}
+          <div className="flex items-center gap-3.5 rounded-2xl border border-line bg-card px-4 py-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface text-ink"><Calendar className="h-3.5 w-3.5" /></span>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {dates.map((d) => {
+                const ds = dayShort(d);
+                const on = d === activeDate;
+                return (
+                  <button key={d} onClick={() => setActiveDate(d)}
+                    className={`flex h-16 w-14 flex-col items-center justify-center gap-0.5 rounded-xl transition-colors ${on ? "bg-primary text-white" : "border border-line bg-card hover:bg-surface"}`}>
+                    <span className={`text-[10px] font-medium ${on ? "text-white/85" : "text-subtle"}`}>{ds.d}</span>
+                    <span className={`text-base font-bold ${on ? "text-white" : "text-ink"}`}>{ds.n}</span>
+                  </button>
+                );
+              })}
             </div>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <button className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface text-ink transition-colors hover:bg-line-soft">
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <button className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface text-ink transition-colors hover:bg-line-soft">
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
-          <button className="flex h-8 items-center rounded-lg border border-line px-3 text-[11px] font-semibold text-ink transition-colors hover:bg-surface">
-            Hoy
-          </button>
-        </div>
-      </div>
+          </div>
 
-      {/* ====== quick stats ====== */}
-      <div className="flex gap-3">
-        {STATS.map((s) => {
-          const t = TONE[s.tone];
-          const Icon = s.icon;
-          return (
-            <div key={s.label} className="flex flex-1 flex-col gap-1.5 rounded-2xl border border-line bg-card p-4">
+          {/* day stats */}
+          <div className="flex flex-wrap gap-3">
+            {dayStats.map((s) => {
+              const Icon = s.icon;
+              return (
+                <div key={s.label} className="flex flex-1 flex-col gap-1.5 rounded-2xl border border-line bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-subtle">{s.label}</span>
+                    <Icon className={`h-3 w-3 ${s.color}`} />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <span className="text-2xl font-bold leading-none text-ink">{s.value}</span>
+                    <span className="text-[11px] text-subtle">{s.pct}%</span>
+                  </div>
+                  <span className="h-1.5 w-full overflow-hidden rounded-full bg-surface"><span className={`block h-full rounded-full ${s.bar}`} style={{ width: `${s.pct}%` }} /></span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-col gap-4 xl:flex-row">
+            {/* roster del día */}
+            <div className="flex flex-1 flex-col gap-3 rounded-2xl border border-line bg-card p-3.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-subtle">{s.label}</span>
-                <Icon className={`h-3 w-3 ${t.icon}`} />
+                <span className="text-sm font-semibold text-ink">Lista — {new Date(activeDate + "T00:00:00").toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</span>
+                <span className="text-xs text-subtle">{dayRecords.length} estudiantes</span>
               </div>
-              <div className="flex items-end justify-between">
-                <div className="flex flex-col">
-                  <span className="text-2xl font-bold leading-none text-ink">{s.value}</span>
-                  <span className="mt-1 text-[11px] text-subtle">{s.foot}</span>
-                </div>
-                <div className="flex h-6 items-end gap-[3px]">
-                  {s.bars.map((h, i) => (
-                    <span key={i} className={`w-1 rounded-sm ${t.bar}`} style={{ height: h }} />
-                  ))}
-                </div>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+                {dayRecords.map((r, i) => {
+                  const name = `${r.student.user.firstName} ${r.student.user.lastName}`;
+                  const est = ESTADO[r.status];
+                  return (
+                    <div key={r.id} className="flex items-center gap-2 rounded-xl border border-line bg-card px-2.5 py-2" title={r.notes ?? ""}>
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${AVATARS[i % AVATARS.length]}`}>{initials(r.student.user.firstName, r.student.user.lastName)}</span>
+                      <span className="flex-1 truncate text-[12px] font-medium text-ink">{name}</span>
+                      {r.notes ? <MessageSquare className="h-3 w-3 shrink-0 text-subtle" /> : null}
+                      <span className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1 text-[11px] font-bold ${est.chip}`}>{est.letra}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* ====== class selector ====== */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {CLASSES.map((c) => (
-            <button
-              key={c.label}
-              className={`flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-[13px] transition-colors ${
-                c.active
-                  ? "border-b-2 border-primary bg-surface font-semibold text-ink"
-                  : "font-medium text-subtle hover:text-ink"
-              }`}
-            >
-              {c.label}
-              {c.active && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-0.5 rounded-lg bg-surface p-[3px]">
-          <button className="flex h-[26px] w-8 items-center justify-center rounded-md bg-primary text-white">
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-          <button className="flex h-[26px] w-8 items-center justify-center rounded-md text-subtle hover:text-ink">
-            <List className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* ====== roster ====== */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-3.5">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-ink">Lista — Matemáticas · 8°B</span>
-            <span className="text-xs text-subtle">32 estudiantes · 4 grupos</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-primary hover:bg-primary/5">
-              <CheckCheck className="h-3.5 w-3.5" />
-              Marcar todos
-            </button>
-            <button className="flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-subtle hover:text-ink">
-              <Eraser className="h-3.5 w-3.5" />
-              Limpiar
-            </button>
-            <span className="h-5 w-px bg-line" />
-            <button className="flex h-8 items-center gap-1.5 rounded-lg border border-line px-3 text-xs font-medium text-ink transition-colors hover:bg-surface">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Filtrar
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {ROSTER.map((st, i) => (
-            <div
-              key={st.name}
-              className="flex items-center gap-2 rounded-xl border border-line bg-card px-2.5 py-2 transition-colors hover:border-primary/40"
-            >
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${AVATARS[i % AVATARS.length]}`}>
-                {initials(st.name)}
-              </span>
-              <span className="flex-1 truncate text-[12px] font-medium text-ink">{st.name}</span>
-              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-bold ${ESTADO[st.estado].chip}`}>
-                {st.estado}
-              </span>
+            {/* en riesgo (acumulado del periodo) */}
+            <div className="flex w-full flex-col gap-3 rounded-2xl border border-line bg-card p-5 xl:w-[340px] xl:shrink-0">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-rose-600" />
+                <h3 className="text-sm font-semibold text-ink">Asistencia en riesgo</h3>
+                {atRisk.length > 0 && <span className="rounded-full bg-s-error px-1.5 py-0.5 text-[10px] font-bold text-s-error-fg">{atRisk.length}</span>}
+              </div>
+              <p className="text-[11px] text-subtle">Estudiantes con asistencia acumulada por debajo del umbral.</p>
+              {(atRisk.length ? atRisk : (report?.students ?? []).slice(0, 6)).map((s, i) => (
+                <div key={s.studentId} className="flex items-center gap-2.5">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${AVATARS[i % AVATARS.length]}`}>{initials(...s.name.split(" "))}</span>
+                  <div className="flex flex-1 flex-col">
+                    <span className="text-[13px] font-medium text-ink">{s.name}</span>
+                    <span className="text-[10px] text-subtle">{s.present}P · {s.absent}A · {s.evasion ?? 0}Ev · {s.late}T · {s.excused}J</span>
+                  </div>
+                  <span className={`text-[13px] font-bold ${s.atRisk ? "text-danger" : "text-ink"}`}>{s.percentage}%</span>
+                </div>
+              ))}
+              {report && report.students.length === 0 && <span className="text-xs text-subtle">Sin datos.</span>}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

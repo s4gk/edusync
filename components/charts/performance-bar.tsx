@@ -11,24 +11,15 @@ import {
   LabelList,
 } from "recharts";
 
-const DATA = [
-  { grado: "Pre-J", actual: 4.5, anterior: 4.3 },
-  { grado: "Jardín", actual: 4.4, anterior: 4.2 },
-  { grado: "Trans", actual: 4.6, anterior: 4.4 },
-  { grado: "1°", actual: 4.3, anterior: 4.1 },
-  { grado: "2°", actual: 4.2, anterior: 4.0 },
-  { grado: "3°", actual: 4.1, anterior: 4.2 },
-  { grado: "4°", actual: 4.4, anterior: 4.3 },
-  { grado: "5°", actual: 4.3, anterior: 4.1 },
-  { grado: "6°", actual: 4.0, anterior: 3.8 },
-  { grado: "7°", actual: 3.9, anterior: 4.0 },
-  { grado: "8°", actual: 4.2, anterior: 4.0 },
-];
+export type PerformancePoint = { grado: string; actual: number | null; anterior: number | null };
 
-export function PerformanceBar() {
+export function PerformanceBar({ data = [] }: { data?: PerformancePoint[] }) {
+  if (!data.length) {
+    return <div className="flex h-full items-center justify-center text-xs text-subtle">Sin notas registradas para el periodo.</div>;
+  }
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={DATA} margin={{ top: 18, right: 0, left: -28, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 18, right: 0, left: -28, bottom: 0 }}>
         <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeOpacity={0.5} />
         <XAxis
           dataKey="grado"
@@ -44,7 +35,7 @@ export function PerformanceBar() {
           tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
         />
         <Tooltip
-          cursor={{ fill: "#5749F4", fillOpacity: 0.06 }}
+          cursor={{ fill: "var(--c-brand)", fillOpacity: 0.08 }}
           contentStyle={{
             borderRadius: 12,
             background: "var(--chart-tooltip-bg)",
@@ -55,7 +46,7 @@ export function PerformanceBar() {
           }}
           labelStyle={{ fontWeight: 600, color: "var(--ink)" }}
         />
-        <Bar dataKey="actual" name="Este periodo" fill="#5749F4" radius={[4, 4, 0, 0]} maxBarSize={14}>
+        <Bar dataKey="actual" name="Este periodo" fill="var(--c-brand)" radius={[4, 4, 0, 0]} maxBarSize={14}>
           <LabelList
             dataKey="actual"
             position="top"

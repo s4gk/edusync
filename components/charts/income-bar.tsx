@@ -1,34 +1,23 @@
 "use client";
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
+import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
-const DATA = [
-  { mes: "Dic", matriculas: 30, pensiones: 45, otros: 15 },
-  { mes: "Ene", matriculas: 28, pensiones: 50, otros: 18 },
-  { mes: "Feb", matriculas: 25, pensiones: 40, otros: 15 },
-  { mes: "Mar", matriculas: 30, pensiones: 48, otros: 16 },
-  { mes: "Abr", matriculas: 32, pensiones: 52, otros: 14 },
-  { mes: "May", matriculas: 35, pensiones: 55, otros: 18 },
-];
+export type IncomePoint = { mes: string; facturado: number; recaudado: number };
 
-export function IncomeBar() {
+const copCompact = (n: number) =>
+  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0, notation: "compact" }).format(n);
+
+export function IncomeBar({ data = [] }: { data?: IncomePoint[] }) {
+  if (!data.length) {
+    return <div className="flex h-full items-center justify-center text-xs text-subtle">Sin datos de ingresos para el año lectivo.</div>;
+  }
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={DATA} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-        <XAxis
-          dataKey="mes"
-          tickLine={false}
-          axisLine={false}
-          tick={{ fontSize: 10, fill: "var(--chart-axis)" }}
-        />
+      <BarChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+        <XAxis dataKey="mes" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "var(--chart-axis)" }} />
         <Tooltip
-          cursor={{ fill: "#5749F4", fillOpacity: 0.06 }}
+          cursor={{ fill: "var(--c-brand)", fillOpacity: 0.08 }}
+          formatter={(value: number, name) => [copCompact(value), name === "facturado" ? "Facturado" : "Recaudado"]}
           contentStyle={{
             borderRadius: 12,
             background: "var(--chart-tooltip-bg)",
@@ -37,16 +26,9 @@ export function IncomeBar() {
             fontSize: 12,
           }}
         />
-        <Bar dataKey="matriculas" name="Matrículas" stackId="a" fill="#5749F4" maxBarSize={28} />
-        <Bar dataKey="pensiones" name="Pensiones" stackId="a" fill="#003300" maxBarSize={28} />
-        <Bar
-          dataKey="otros"
-          name="Otros"
-          stackId="a"
-          fill="#4D2700"
-          radius={[4, 4, 0, 0]}
-          maxBarSize={28}
-        />
+        <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => (v === "facturado" ? "Facturado" : "Recaudado")} />
+        <Bar dataKey="facturado" name="facturado" fill="var(--c-income-2)" radius={[4, 4, 0, 0]} maxBarSize={22} />
+        <Bar dataKey="recaudado" name="recaudado" fill="var(--c-income-1)" radius={[4, 4, 0, 0]} maxBarSize={22} />
       </BarChart>
     </ResponsiveContainer>
   );
