@@ -9,32 +9,35 @@
  * viejas quedan apuntando a la versión anterior, que es justo lo que se quiere.
  */
 
+import type { SchoolProfile } from '../settings/settings.service';
+
 export const POLICY_VERSION = '1.0';
 
-/** Datos del responsable del tratamiento. Se configuran por entorno porque
- *  cambian por institución (y el NIT no se inventa: sin él el aviso queda
- *  incompleto frente a la SIC). */
-export function responsable() {
+/** Datos del responsable del tratamiento. Vienen de Configuración → Datos de la
+ *  institución (que a su vez respalda en el .env): cambian por institución y el
+ *  NIT no se inventa — sin él el aviso queda incompleto frente a la SIC. */
+export function responsable(school: SchoolProfile) {
   return {
-    nombre: process.env.SCHOOL_NAME || 'Colegio EduSync',
-    nit: process.env.SCHOOL_NIT || '',
-    direccion: process.env.SCHOOL_ADDRESS || '',
-    ciudad: process.env.SCHOOL_CITY || '',
-    telefono: process.env.SCHOOL_PHONE || '',
-    correo: process.env.PRIVACY_CONTACT_EMAIL || process.env.SMTP_FROM || '',
+    nombre: school.name || 'Institución educativa',
+    nit: school.nit,
+    direccion: school.address,
+    ciudad: school.city,
+    telefono: school.phone,
+    correo: school.privacyEmail || school.email,
   };
 }
 
 /** ¿Está completo el aviso? Si falta el NIT o el correo de contacto, la
  *  política se puede mostrar pero NO cumple: el titular no tendría a dónde
- *  dirigir una consulta o un reclamo. El front usa esto para advertirlo. */
-export function configuracionCompleta() {
-  const r = responsable();
+ *  dirigir una consulta o un reclamo. El front usa esto para advertirlo, y
+ *  nombra los campos como se llaman en la pantalla de Configuración. */
+export function configuracionCompleta(school: SchoolProfile) {
+  const r = responsable(school);
   const faltantes: string[] = [];
-  if (!r.nit) faltantes.push('SCHOOL_NIT');
-  if (!r.correo) faltantes.push('PRIVACY_CONTACT_EMAIL');
-  if (!r.direccion) faltantes.push('SCHOOL_ADDRESS');
-  if (!process.env.SCHOOL_NAME) faltantes.push('SCHOOL_NAME');
+  if (!school.name) faltantes.push('Nombre de la institución');
+  if (!r.nit) faltantes.push('NIT');
+  if (!r.direccion) faltantes.push('Dirección');
+  if (!r.correo) faltantes.push('Correo para habeas data');
   return { completa: faltantes.length === 0, faltantes };
 }
 
@@ -110,16 +113,16 @@ export const CONSERVACION =
   'certificados y constancias de estudio en cualquier momento posterior al retiro o grado del estudiante. ' +
   'Los demás datos se conservan mientras exista la relación y durante los términos legales aplicables.';
 
-export function politica() {
+export function politica(school: SchoolProfile) {
   return {
     version: POLICY_VERSION,
-    responsable: responsable(),
+    responsable: responsable(school),
     finalidades: FINALIDADES,
     finalidadesOpcionales: FINALIDADES_OPCIONALES,
     derechos: DERECHOS,
     avisoMenores: AVISO_MENORES,
     avisoSensibles: AVISO_SENSIBLES,
     conservacion: CONSERVACION,
-    configuracion: configuracionCompleta(),
+    configuracion: configuracionCompleta(school),
   };
 }

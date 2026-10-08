@@ -6,6 +6,7 @@ import {
   Download, Plus, Search, ChevronLeft, ChevronRight, GraduationCap, Loader2, TriangleAlert, IdCard, ChevronRight as Caret,
 } from "lucide-react";
 import { apiGet } from "@/lib/api";
+import { downloadCSV } from "@/lib/finance";
 
 type ApiStudent = {
   id: string;
@@ -83,6 +84,43 @@ export default function EstudiantesPage() {
     return () => clearTimeout(id);
   }, [load, search]);
 
+  /** Exporta TODO lo que cumple los filtros, no solo la página en pantalla:
+   *  la lista se usa para pasarla a secretaría o a la Secretaría de Educación. */
+  const [exporting, setExporting] = useState(false);
+  const exportar = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ page: "1", limit: "500" });
+      if (unassigned) params.set("unassigned", "true");
+      else if (groupId) params.set("gradeGroupId", groupId);
+      else if (gradeLevel !== null) params.set("gradeLevel", String(gradeLevel));
+      if (search.trim()) params.set("search", search.trim());
+      const res = await apiGet<Paginated<ApiStudent>>(`/students?${params.toString()}`);
+
+      downloadCSV(`estudiantes_${new Date().toISOString().slice(0, 10)}.csv`, [
+        ["Código", "Documento", "Apellidos", "Nombres", "Curso", "Grado", "Edad", "Correo", "Teléfono", "Acudiente principal", "Estado"],
+        ...res.data.map((st) => {
+          const principal = st.guardians?.find((g) => g.isPrimary) ?? st.guardians?.[0];
+          return [
+            st.enrollmentCode ?? "",
+            st.documentId ?? "",
+            st.user.lastName,
+            st.user.firstName,
+            st.gradeGroup?.name ?? "Sin grupo",
+            st.gradeGroup ? (st.gradeGroup.gradeLevel === 0 ? "Preescolar" : st.gradeGroup.gradeLevel) : "",
+            st.birthDate ? age(st.birthDate) : "",
+            st.user.email ?? "",
+            st.user.phone ?? "",
+            principal ? `${principal.guardian.user.firstName} ${principal.guardian.user.lastName}` : "",
+            statusMeta(st.user.status).label,
+          ];
+        }),
+      ]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo exportar el listado.");
+    } finally { setExporting(false); }
+  };
+
   const from = meta && meta.total > 0 ? (meta.page - 1) * meta.limit + 1 : 0;
   const to = meta ? Math.min(meta.page * meta.limit, meta.total) : 0;
 
@@ -98,8 +136,9 @@ export default function EstudiantesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex h-9 items-center gap-2 rounded-lg border border-line px-3.5 text-[13px] font-medium text-ink transition-colors hover:bg-surface">
-            <Download className="h-3.5 w-3.5" /> Exportar
+          <button onClick={exportar} disabled={exporting || !students.length}
+            className="flex h-9 items-center gap-2 rounded-lg border border-line px-3.5 text-[13px] font-medium text-ink transition-colors hover:bg-surface disabled:opacity-40">
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Exportar
           </button>
           <Link href="/matriculas/nuevo" className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90">
             <Plus className="h-3.5 w-3.5" /> Nuevo estudiante

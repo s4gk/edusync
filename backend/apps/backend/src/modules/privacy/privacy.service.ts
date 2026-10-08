@@ -7,15 +7,19 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateConsentDto } from './dto/consent.dto';
 import { FINALIDADES, POLICY_VERSION, politica } from './privacy.policy';
+import { SettingsService } from '../settings/settings.service';
 
 const CLAVES_VALIDAS = new Set(FINALIDADES.map((f) => f.key));
 
 @Injectable()
 export class PrivacyService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
-  politicaVigente() {
-    return politica();
+  async politicaVigente() {
+    return politica(await this.settings.getSchool());
   }
 
   async registrar(dto: CreateConsentDto, meta: { ip?: string; userAgent?: string }) {

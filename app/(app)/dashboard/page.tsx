@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useDismiss } from "@/components/use-dismiss";
 import { useAuth } from "@/components/auth-context";
 import { apiGet } from "@/lib/api";
+import { downloadCSV } from "@/lib/finance";
 import {
   Download,
   FileDown,
@@ -30,6 +32,8 @@ import {
   Ellipsis,
   Sparkles,
   ArrowRight,
+  Loader2,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { PerformanceBar, type PerformancePoint } from "@/components/charts/performance-bar";
@@ -96,12 +100,45 @@ function financeKpis(f: DashboardData["finance"]): Kpi[] {
   ];
 }
 
-const ALERTS = [
-  { icon: ShieldAlert, tone: "error" as const, bar: "bg-danger", title: "Bajo rendimiento académico", badge: "Crítico", desc: "41 estudiantes con promedio inferior a 3.0 en al menos 2 materias del periodo actual.", meta: "Detectado hoy 08:14", action: "Revisar" },
-  { icon: CreditCard, tone: "warning" as const, bar: "bg-s-warning-fg", title: "Pagos vencidos en cartera", badge: "Alto", desc: "63 familias con pagos vencidos hace más de 30 días. Total en mora: $ 142,5 M COP.", meta: "Actualizado hace 6 h", action: "Cobrar" },
-  { icon: Timer, tone: "warning" as const, bar: "bg-s-warning-fg", title: "Notas sin reportar", badge: "Medio", desc: "12 docentes con notas del Periodo 2 pendientes. Cierre programado en 4 días.", meta: "Vence 27 mayo · 18:00", action: "Notificar" },
-  { icon: CalendarClock, tone: "info" as const, bar: "bg-s-info-fg", title: "Fallas de asistencia", badge: "Seguir", desc: "9 estudiantes con más del 20% de inasistencias. Notificar acudientes antes del viernes.", meta: "Reporte semanal", action: "Contactar" },
-];
+type AlertaReal = {
+  icon: LucideIcon;
+  tone: "error" | "warning" | "info";
+  bar: string;
+  title: string;
+  badge: string;
+  desc: string;
+  meta: string;
+  action: string;
+  href: string;
+};
+
+/** Vuelca los indicadores del panel a CSV — lo que rectoría lleva a consejo
+ *  directivo. Solo exporta lo que está cargado; nada de cifras inventadas. */
+function exportarResumen(data: DashboardData | null, charts: ChartsData | null) {
+  if (!data) return;
+  const filas: (string | number)[][] = [["Indicador", "Valor"]];
+  const o = data.overview;
+  if (o) {
+    filas.push(["Estudiantes", o.totalStudents ?? ""], ["Docentes", o.totalTeachers ?? ""],
+      ["Usuarios", o.totalUsers ?? ""], ["Matrículas activas", o.activeEnrollments ?? ""]);
+  }
+  const f = data.finance;
+  if (f) {
+    filas.push(["Facturado del mes", Number(f.billedThisMonth ?? 0)],
+      ["Recaudado del mes", Number(f.collectedThisMonth ?? 0)],
+      ["Facturas pendientes", f.pendingInvoices ?? ""],
+      ["Facturas vencidas", f.overdueInvoices ?? ""]);
+  }
+  if (charts?.performanceByGrade?.length) {
+    filas.push([], ["Promedio por grado", "Actual", "Periodo anterior"]);
+    charts.performanceByGrade.forEach((p: PerformancePoint) =>
+      filas.push([p.grado, p.actual ?? "", p.anterior ?? ""]));
+  }
+  downloadCSV(`resumen_colegio_${new Date().toISOString().slice(0, 10)}.csv`, filas);
+}
+
+const copCorto = (n: number) =>
+  `$ ${((n || 0) / 1_000_000).toLocaleString("es-CO", { maximumFractionDigits: 1 })} M COP`;
 
 const CHIPS = ["Hoy", "Esta semana", "Este mes", "Trimestre", "Año lectivo"];
 
@@ -112,7 +149,7 @@ const TABS: { id: TabId; label: string; count?: string }[] = [
   { id: "academico", label: "Académico" },
   { id: "finanzas", label: "Finanzas" },
   { id: "actividad", label: "Actividad", count: "248" },
-  { id: "alertas", label: "Alertas", count: "27" },
+  { id: "alertas", label: "Alertas" },
 ];
 
 /* ---------------- helpers ---------------- */
@@ -498,79 +535,142 @@ function ActividadTab({ data, loading }: TabProps) {
   );
 }
 
+/**
+ * Alertas reales del colegio.
+ *
+ * Esta pestaña mostraba una lista fija ("41 estudiantes con promedio inferior a
+ * 3.0", "63 familias en mora", "$142,5 M") que no salía de ninguna consulta:
+ * números inventados presentados a rectoría como si fueran el estado del
+ * colegio. Ahora cada tarjeta se calcula de la misma fuente que la pantalla a
+ * la que enlaza, y si no hay nada que reportar lo dice.
+ */
 function AlertasTab() {
+  const [loading, setLoading] = useState(true);
+  const [alertas, setAlertas] = useState<AlertaReal[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const year = await apiGet<{ id: string; year: number; isCurrent?: boolean }[]>("/academic/years")
+          .then((ys) => ys.find((y) => y.isCurrent) ?? ys[0]);
+        if (!year) { if (vivo) { setAlertas([]); setLoading(false); } return; }
+
+        const periods = await apiGet<{ periodNumber: number; isClosed: boolean }[]>(
+          `/academic/years/${year.id}/periods`,
+        ).catch(() => []);
+        const abierto = periods.filter((p) => !p.isClosed).sort((a, b) => a.periodNumber - b.periodNumber)[0];
+        const pn = abierto?.periodNumber ?? periods[0]?.periodNumber ?? 1;
+
+        const [riesgo, finanzas, validacion] = await Promise.all([
+          apiGet<{ studentId: string }[]>(`/reports/at-risk?academicYearId=${year.id}&period=P${pn}`).catch(() => []),
+          apiGet<{ portfolio: number; overdueCount: number; pendingCount: number }>(`/finance/summary/${year.id}`).catch(() => null),
+          apiGet<{ canClose: boolean; totalIssues: number }>(`/grades/validate-close?academicYearId=${year.id}&periodNumber=${pn}`).catch(() => null),
+        ]);
+
+        const out: AlertaReal[] = [];
+
+        if (riesgo.length > 0) {
+          out.push({
+            icon: ShieldAlert, tone: "error", bar: "bg-danger",
+            title: "Bajo rendimiento académico", badge: "Crítico",
+            desc: `${riesgo.length} ${riesgo.length === 1 ? "estudiante tiene" : "estudiantes tienen"} dos o más áreas en desempeño bajo en el periodo ${pn}.`,
+            meta: `Periodo ${pn} en curso`, action: "Revisar", href: "/pendientes",
+          });
+        }
+        if (finanzas && finanzas.overdueCount > 0) {
+          out.push({
+            icon: CreditCard, tone: "warning", bar: "bg-s-warning-fg",
+            title: "Cartera vencida", badge: "Alto",
+            desc: `${finanzas.overdueCount} ${finanzas.overdueCount === 1 ? "factura vencida" : "facturas vencidas"} y ${finanzas.pendingCount} pendientes. Cartera por cobrar: ${copCorto(finanzas.portfolio)}.`,
+            meta: "Sobre el año lectivo en curso", action: "Cobrar", href: "/finanzas",
+          });
+        }
+        if (validacion && !validacion.canClose && validacion.totalIssues > 0) {
+          out.push({
+            icon: Timer, tone: "warning", bar: "bg-s-warning-fg",
+            title: "Notas sin reportar", badge: "Medio",
+            desc: `${validacion.totalIssues} ${validacion.totalIssues === 1 ? "evaluación" : "evaluaciones"} del periodo ${pn} sin calificaciones completas. El periodo no se puede cerrar así.`,
+            meta: `Periodo ${pn}`, action: "Ver detalle", href: "/periodos",
+          });
+        }
+
+        if (vivo) setAlertas(out);
+      } catch (e) {
+        if (vivo) setError(e instanceof Error ? e.message : "No se pudieron cargar las alertas.");
+      } finally {
+        if (vivo) setLoading(false);
+      }
+    })();
+    return () => { vivo = false; };
+  }, []);
+
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-line bg-card">
       <div className="flex flex-col gap-3.5 border-b border-line px-6 py-5">
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              <BellRing className="h-4 w-4 text-danger" />
+              <BellRing className={`h-4 w-4 ${alertas.length ? "text-danger" : "text-subtle"}`} />
               <h3 className="text-base font-semibold text-ink">Alertas críticas</h3>
-              <span className="rounded-full bg-danger px-1.5 py-0.5 text-[11px] font-bold text-white">27</span>
+              {alertas.length > 0 && (
+                <span className="rounded-full bg-danger px-1.5 py-0.5 text-[11px] font-bold text-white">{alertas.length}</span>
+              )}
             </div>
             <p className="text-xs text-subtle">Requieren acción inmediata</p>
           </div>
-          <button className="flex h-[30px] w-[30px] items-center justify-center rounded-lg border border-line text-subtle hover:bg-surface">
-            <Ellipsis className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="flex max-w-md gap-0.5 rounded-lg bg-surface p-1">
-          {["Todas", "Académicas", "Asistencia", "Finanzas"].map((s, i) => (
-            <button
-              key={s}
-              className={`flex-1 rounded-md px-2 py-1.5 text-center text-xs transition-colors ${
-                i === 0 ? "border border-line bg-card font-semibold text-ink" : "font-medium text-subtle"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
         </div>
       </div>
-      <div className="grid flex-1 grid-cols-1 gap-2.5 px-4 py-3 lg:grid-cols-2">
-        {ALERTS.map((al) => {
-          const tone = TONE[al.tone];
-          const Icon = al.icon;
-          return (
-            <div key={al.title} className="flex gap-3 rounded-xl border border-line bg-card p-3.5">
-              <span className={`w-[3px] shrink-0 rounded-full ${al.bar}`} />
-              <div className="flex flex-1 flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Icon className={`h-3.5 w-3.5 ${tone.badgeFg}`} />
-                    <span className="text-[13px] font-semibold text-ink">{al.title}</span>
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-14 text-sm text-subtle">
+          <Loader2 className="h-4 w-4 animate-spin" /> Revisando el estado del colegio…
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center gap-2 py-14 text-sm text-s-error-fg">
+          <TriangleAlert className="h-4 w-4" /> {error}
+        </div>
+      ) : alertas.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-14 text-center text-sm text-subtle">
+          <Check className="h-6 w-6 text-emerald-500" />
+          Sin alertas críticas: no hay estudiantes en riesgo, cartera vencida ni notas pendientes.
+        </div>
+      ) : (
+        <div className="grid flex-1 grid-cols-1 gap-2.5 px-4 py-3 lg:grid-cols-2">
+          {alertas.map((al) => {
+            const tone = TONE[al.tone];
+            const Icon = al.icon;
+            return (
+              <div key={al.title} className="flex gap-3 rounded-xl border border-line bg-card p-3.5">
+                <span className={`w-[3px] shrink-0 rounded-full ${al.bar}`} />
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Icon className={`h-3.5 w-3.5 ${tone.badgeFg}`} />
+                      <span className="text-[13px] font-semibold text-ink">{al.title}</span>
+                    </div>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${tone.badgeBg} ${tone.badgeFg}`}>
+                      {al.badge}
+                    </span>
                   </div>
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${tone.badgeBg} ${tone.badgeFg}`}>
-                    {al.badge}
-                  </span>
-                </div>
-                <p className="text-xs leading-relaxed text-subtle">{al.desc}</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <CalendarClock className="h-3 w-3 text-subtle" />
-                    <span className="text-[11px] text-subtle">{al.meta}</span>
+                  <p className="text-xs leading-relaxed text-subtle">{al.desc}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <CalendarClock className="h-3 w-3 text-subtle" />
+                      <span className="text-[11px] text-subtle">{al.meta}</span>
+                    </div>
+                    <Link href={al.href} className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] font-semibold text-ink transition-colors hover:bg-surface">
+                      {al.action}
+                      <ChevronRight className="h-3 w-3" />
+                    </Link>
                   </div>
-                  <button className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] font-semibold text-ink transition-colors hover:bg-surface">
-                    {al.action}
-                    <ChevronRight className="h-3 w-3" />
-                  </button>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex items-center justify-between border-t border-line px-5 py-3.5">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
-          <span className="text-xs font-medium text-ink">Sugerencias IA disponibles</span>
+            );
+          })}
         </div>
-        <button className="flex items-center gap-1 text-xs font-semibold text-primary">
-          Ver las 27
-          <ArrowRight className="h-3 w-3" />
-        </button>
-      </div>
+      )}
     </div>
   );
 }
@@ -643,17 +743,21 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button className="flex h-10 w-10 items-center justify-center rounded-full border border-line text-ink transition-colors hover:bg-surface">
-              <Download className="h-4 w-4" />
-            </button>
-            <button className="flex h-10 items-center gap-1.5 rounded-full border border-line px-4 text-sm font-medium text-ink transition-colors hover:bg-surface">
+            <button
+              onClick={() => exportarResumen(data, charts)}
+              disabled={!data}
+              className="flex h-10 items-center gap-1.5 rounded-full border border-line px-4 text-sm font-medium text-ink transition-colors hover:bg-surface disabled:opacity-40"
+            >
               <FileDown className="h-4 w-4" />
-              Exportar reporte
+              Exportar resumen
             </button>
-            <button className="flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90">
-              <Plus className="h-4 w-4" />
-              Nueva acción
-            </button>
+            <Link
+              href="/pendientes"
+              className="flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              <ClipboardCheck className="h-4 w-4" />
+              Lo que falta hoy
+            </Link>
           </div>
         </div>
         <div className="flex items-center justify-between gap-4">
