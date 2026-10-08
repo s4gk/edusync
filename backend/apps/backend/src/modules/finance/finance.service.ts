@@ -122,7 +122,14 @@ export class FinanceService {
         take: limit,
         orderBy: { dueDate: 'asc' },
         include: {
-          student: { include: { user: { select: { firstName: true, lastName: true } } } },
+          student: {
+            include: {
+              user: { select: { firstName: true, lastName: true } },
+              // El curso va en la lista de cartera: quien llama a cobrar
+              // necesita saber a qué grupo pertenece el estudiante.
+              gradeGroup: { select: { name: true, gradeLevel: true } },
+            },
+          },
           payment: true,
         },
       }),
