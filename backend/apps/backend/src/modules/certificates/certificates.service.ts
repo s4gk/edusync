@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-
-const SCHOOL = process.env.SCHOOL_NAME || 'Colegio San Mateo';
+import { SettingsService, SchoolProfile } from '../settings/settings.service';
 
 /**
  * Encabezado legal del certificado. Antes estaba escrito a mano en la plantilla
@@ -11,14 +10,13 @@ const SCHOOL = process.env.SCHOOL_NAME || 'Colegio San Mateo';
  * política de datos, y lo que no esté configurado simplemente no se imprime:
  * mejor un encabezado corto que uno con datos falsos.
  */
-function encabezadoLegal(): string {
+function encabezadoLegal(school: SchoolProfile): string {
   const partes = [
-    process.env.SCHOOL_NIT ? `NIT ${process.env.SCHOOL_NIT}` : null,
-    process.env.SCHOOL_DANE ? `Código DANE ${process.env.SCHOOL_DANE}` : null,
-    process.env.SCHOOL_RESOLUTION
-      ? `Aprobado por la Secretaría de Educación · ${process.env.SCHOOL_RESOLUTION}`
-      : null,
-    [process.env.SCHOOL_ADDRESS, process.env.SCHOOL_CITY].filter(Boolean).join(', ') || null,
+    school.nit ? `NIT ${school.nit}` : null,
+    school.dane ? `Código DANE ${school.dane}` : null,
+    school.resolution ? `Aprobado por la Secretaría de Educación · ${school.resolution}` : null,
+    [school.address, school.city].filter(Boolean).join(', ') || null,
+    school.phone ? `Tel. ${school.phone}` : null,
   ].filter(Boolean);
   return partes.join(' · ');
 }
@@ -36,18 +34,25 @@ type StudentFull = Awaited<ReturnType<CertificatesService['loadStudent']>>;
  */
 @Injectable()
 export class CertificatesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
   async generate(type: string, studentId: string) {
     const student = await this.loadStudent(studentId);
     if (!student) throw new NotFoundException('Estudiante no encontrado');
 
+    // La identidad de la institución sale de Configuración (con respaldo en el
+    // .env). Se lee una vez por documento.
+    const school = await this.settings.getSchool();
+
     let html: string;
     let slug: string;
     switch (type) {
-      case 'estudio': html = this.constanciaEstudio(student); slug = 'constancia-estudio'; break;
-      case 'notas': html = await this.certificadoNotas(student); slug = 'certificado-notas'; break;
-      case 'paz-y-salvo': html = await this.pazYSalvo(student); slug = 'paz-y-salvo'; break;
+      case 'estudio': html = this.constanciaEstudio(student, school); slug = 'constancia-estudio'; break;
+      case 'notas': html = await this.certificadoNotas(student, school); slug = 'certificado-notas'; break;
+      case 'paz-y-salvo': html = await this.pazYSalvo(student, school); slug = 'paz-y-salvo'; break;
       default: throw new BadRequestException('Tipo de certificado inválido.');
     }
 
@@ -75,20 +80,22 @@ export class CertificatesService {
     return `${s!.user.firstName} ${s!.user.lastName}`;
   }
 
-  private constanciaEstudio(s: StudentFull): string {
+  private constanciaEstudio(s: StudentFull, school: SchoolProfile): string {
+    const nombreColegio = school.name || 'Institución educativa';
     const grupo = s!.gradeGroup?.name ?? '—';
     const year = s!.gradeGroup?.academicYear?.year ?? '';
     return this.wrap(
       'CONSTANCIA DE ESTUDIO',
-      `<p>La institución educativa <b>${SCHOOL}</b> hace constar que el(la) estudiante
+      `<p>La institución educativa <b>${nombreColegio}</b> hace constar que el(la) estudiante
       <b>${this.nombre(s)}</b>, identificado(a) con documento N.° <b>${s!.documentId}</b>
       y código de matrícula <b>${s!.enrollmentCode}</b>, se encuentra matriculado(a) y cursando el grado
       <b>${grupo}</b> durante el año lectivo <b>${year}</b>.</p>
       <p>La presente constancia se expide a solicitud del interesado, a los ${this.hoy()}.</p>`,
+      school,
     );
   }
 
-  private async certificadoNotas(s: StudentFull): Promise<string> {
+  private async certificadoNotas(s: StudentFull, school: SchoolProfile): Promise<string> {
     const records = await this.prisma.gradeRecord.findMany({
       where: { studentId: s!.id },
       include: { subject: { select: { name: true } } },
@@ -122,10 +129,11 @@ export class CertificatesService {
          <p>Promedio en escala de 1.0 a 5.0. Se expide a los ${this.hoy()}.</p>`
       : `<p>El(la) estudiante <b>${this.nombre(s)}</b> no tiene calificaciones registradas a la fecha (${this.hoy()}).</p>`;
 
-    return this.wrap('CERTIFICADO DE CALIFICACIONES', body);
+    return this.wrap('CERTIFICADO DE CALIFICACIONES', body, school);
   }
 
-  private async pazYSalvo(s: StudentFull): Promise<string> {
+  private async pazYSalvo(s: StudentFull, school: SchoolProfile): Promise<string> {
+    const nombreColegio = school.name || 'Institución educativa';
     const pendientes = await this.prisma.invoice.count({
       where: { studentId: s!.id, status: { in: ['PENDING', 'OVERDUE'] } },
     });
@@ -135,11 +143,11 @@ export class CertificatesService {
          (grado <b>${grupo}</b>), se informa que <b>NO se encuentra a paz y salvo</b>: registra
          <b>${pendientes}</b> ${pendientes === 1 ? 'obligación pendiente' : 'obligaciones pendientes'} por concepto de pensión.</p>
          <p>Documento informativo expedido a los ${this.hoy()}.</p>`
-      : `<p>La institución educativa <b>${SCHOOL}</b> hace constar que el(la) estudiante
+      : `<p>La institución educativa <b>${nombreColegio}</b> hace constar que el(la) estudiante
          <b>${this.nombre(s)}</b>, del grado <b>${grupo}</b>, <b>se encuentra a PAZ Y SALVO</b>
          por todo concepto financiero con la institución a la fecha.</p>
          <p>Se expide a solicitud del interesado, a los ${this.hoy()}.</p>`;
-    return this.wrap('PAZ Y SALVO', body);
+    return this.wrap('PAZ Y SALVO', body, school);
   }
 
   private escala(v: number): string {
@@ -149,7 +157,13 @@ export class CertificatesService {
     return 'Bajo';
   }
 
-  private wrap(title: string, body: string): string {
+  private wrap(title: string, body: string, school: SchoolProfile): string {
+    const nombreColegio = school.name || 'Institución educativa';
+    // El pie de firma nombra al rector si está configurado; si no, queda la
+    // dependencia genérica en vez de un nombre inventado.
+    const firma = school.rector
+      ? `<div class="line">${school.rector}</div><div class="role">Rector(a) · ${nombreColegio}</div>`
+      : `<div class="line">Secretaría Académica</div><div class="role">${nombreColegio}</div>`;
     return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
       body { font-family: 'Georgia', 'Times New Roman', serif; color: #1f2937; margin: 0; padding: 0; line-height: 1.7; }
       .sheet { padding: 8px 4px; }
@@ -168,14 +182,13 @@ export class CertificatesService {
       .foot { margin-top: 40px; text-align: center; font-size: 10px; color: #9ca3af; }
     </style></head><body><div class="sheet">
       <div class="head">
-        <div class="school">${SCHOOL}</div>
-        <div class="sub">${encabezadoLegal()}</div>
+        <div class="school">${nombreColegio}</div>
+        <div class="sub">${encabezadoLegal(school)}</div>
       </div>
       <h1>${title}</h1>
       ${body}
       <div class="firma">
-        <div class="line">Secretaría Académica</div>
-        <div class="role">${SCHOOL}</div>
+        ${firma}
       </div>
       <div class="foot">Documento generado electrónicamente por el Sistema de Gestión Escolar Edusync.</div>
     </div></body></html>`;

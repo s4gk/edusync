@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsNumber, IsString, Max, Min } from 'class-validator';
+import { ArrayNotEmpty, IsArray, IsEnum, IsNotEmpty, IsNumber, IsString, Max, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { GradeScale } from '@school/shared';
 
 export class UpsertGradeScaleConfigDto {
@@ -21,7 +22,14 @@ export class UpsertGradeScaleConfigDto {
 }
 
 export class SetGradeScalesDto {
+  // Sin @IsArray/@ValidateNested el ValidationPipe global (whitelist +
+  // forbidNonWhitelisted) rechazaba la propiedad entera: la escala de
+  // valoración del Decreto 1290 no se podía guardar por ningún medio.
   @ApiProperty({ type: [UpsertGradeScaleConfigDto] })
+  @IsArray()
+  @ArrayNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => UpsertGradeScaleConfigDto)
   scales: UpsertGradeScaleConfigDto[];
 
   @ApiProperty()
